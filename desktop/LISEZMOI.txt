@@ -1,0 +1,21 @@
+J.A.R.V.I.S. — Just A Rather Very Intelligent System
+====================================================
+
+Lancer      : icône « J.A.R.V.I.S. » du bureau ou du menu Démarrer (JARVIS.exe).
+Arrêter     : bouton ⏻ en haut à droite, ou dites « Jarvis, éteins-toi ».
+              JARVIS s'arrête aussi tout seul 5 minutes après la fermeture de sa fenêtre.
+Micro       : autorisez le microphone la première fois. Espace = parler.
+Plugins     : C:\Users\<vous>\JARVIS\plugins  (fichiers Python, voir LISEZMOI.md)
+Code source : C:\Users\<vous>\JARVIS\code-source  (si l'option a été cochée)
+Données     : %APPDATA%\JARVIS  (base de données, journal, profil de la fenêtre)
+Journal     : %APPDATA%\JARVIS\logs\jarvis.log
+
+Contenu de ce dossier
+  JARVIS.exe        lanceur
+  app\              application (serveur Next.js autonome, plugins d'exemple, pont Python)
+  runtime\node.exe  moteur Node.js
+  runtime\python\   Python intégré (utilisé si Python n'est pas installé sur le PC)
+  launcher\         script de démarrage
+
+Logiciels libres inclus : Node.js (MIT), Next.js (MIT), React (MIT), PGlite (Apache-2.0 / PostgreSQL),
+Python (PSF License), NSIS (zlib).

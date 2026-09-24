@@ -1,0 +1,1 @@
+ALTER TABLE "settings" ADD COLUMN IF NOT EXISTS "ai_keys" text DEFAULT '{}' NOT NULL;

@@ -1,0 +1,34 @@
+{
+    "version":  "7",
+    "dialect":  "postgresql",
+    "entries":  [
+                    {
+                        "idx":  0,
+                        "version":  "7",
+                        "when":  1790202128999,
+                        "tag":  "0000_uneven_trauma",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  1,
+                        "version":  "7",
+                        "when":  1790206163172,
+                        "tag":  "0001_lucky_leech",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  2,
+                        "version":  "7",
+                        "when":  1790207810409,
+                        "tag":  "0002_dizzy_matthew_murdock",
+                        "breakpoints":  true
+                    },
+                    {
+                        "idx":  3,
+                        "version":  "7",
+                        "when":  1790210000000,
+                        "tag":  "0003_cles_ia_fournisseurs",
+                        "breakpoints":  true
+                    }
+                ]
+}
