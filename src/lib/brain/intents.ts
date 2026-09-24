@@ -496,7 +496,7 @@ export const INTENTS: Intent[] = [
       if (asksView) {
         const vue = /satellite/.test(f) ? "satellites" : "systeme";
         return say(`J'affiche ${vue === "satellites" ? "les satellites en direct" : "le système solaire en temps réel"}, ${c.sir}.`, {
-          actions: [{ type: "open", url: `/espace?vue=${vue}`, label: "Espace" }],
+          actions: [{ type: "espace", vue }],
         });
       }
       if (asksIss) {
@@ -504,7 +504,7 @@ export const INTENTS: Intent[] = [
         if (!iss) return say(`Je n'ai pas pu localiser la Station spatiale, ${c.sir} — les données orbitales sont injoignables (Internet ?).`, { source: "espace" });
         return say(
           `La Station spatiale internationale survole actuellement ${Math.abs(iss.lat).toFixed(1)} degrés de latitude ${R2R(iss.lat)} et ${Math.abs(iss.lon).toFixed(1)} degrés de longitude ${iss.lon < 0 ? "ouest" : "est"}, à ${Math.round(iss.altKm)} kilomètres d'altitude. Elle file à ${Math.round(iss.speedKmh).toLocaleString("fr-FR")} kilomètres heure, ${c.sir}.`,
-          { source: "espace", actions: [{ type: "open", url: "/espace?vue=satellites", label: "Voir sur le globe" }] },
+          { source: "espace", actions: [{ type: "espace", vue: "satellites" }] },
         );
       }
       const target = (planet?.[1] ?? asksDistance?.[1]) as string;
@@ -513,7 +513,7 @@ export const INTENTS: Intent[] = [
         if (!pos) return null;
         const km = planetDistance("terre", target, Date.now());
         const detail = target === "terre" ? `Nous sommes à ${pos.au.toFixed(3)} unités astronomiques du Soleil, ${c.sir}.` : `${pos.name} se trouve à ${pos.au.toFixed(2)} unités astronomiques du Soleil, soit environ ${Math.round((km ?? 0) / 1e6)} millions de kilomètres de la Terre, ${c.sir}.`;
-        return say(detail, { source: "espace", actions: [{ type: "open", url: "/espace?vue=systeme", label: "Système solaire" }] });
+        return say(detail, { source: "espace", actions: [{ type: "espace", vue: "systeme" }] });
       }
       return null;
     },

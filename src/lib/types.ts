@@ -15,7 +15,8 @@ export type ClientAction =
   | { type: "quit" }
   | { type: "play_music"; kind: "boot" | "youtube"; url?: string; title?: string }
   | { type: "stop_music" }
-  | { type: "sound"; name: "party" | "alert" | "success" | "theme" };
+  | { type: "sound"; name: "party" | "alert" | "success" | "theme" }
+  | { type: "espace"; vue?: "systeme" | "satellites" };
 
 export interface WeatherDay {
   date: string;

@@ -13,6 +13,7 @@ import {
   MicOff,
   Plus,
   Power,
+  Orbit,
   Send,
   Settings,
   Sparkles,
@@ -21,6 +22,7 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
+import SpacePanel, { type SpaceVue } from "./SpacePanel";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import ArcReactor, { type OrbState } from "./ArcReactor";
 import BootScreen, { type BootMusicKind } from "./BootScreen";
@@ -166,6 +168,7 @@ export default function JarvisApp() {
   const [themeFlash, setThemeFlash] = useState(0);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [spaceVue, setSpaceVue] = useState<SpaceVue | null>(null);
   const [mobileTab, setMobileTab] = useState<"chat" | "system" | "tasks">("chat");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [micError, setMicError] = useState<string | null>(null);
@@ -831,6 +834,9 @@ export default function JarvisApp() {
           if (a.name === "theme") startBootMusic("theme", { volume: payloadRef.current?.settings.bootVolume ?? 0.8 });
           else sfx[a.name]();
           break;
+        case "espace":
+          setSpaceVue(a.vue === "satellites" ? "satellites" : "systeme");
+          break;
         case "play_music": {
           const setup = musicSetup(payloadRef.current);
           if (a.kind === "youtube" && a.url) {
@@ -1442,6 +1448,9 @@ export default function JarvisApp() {
               <button type="button" className="hud-btn" title="Nouvelle conversation" onClick={newConversation}>
                 <Plus size={16} />
               </button>
+              <button type="button" className="hud-btn" title="Espace : système solaire en temps réel et satellites en direct" onClick={() => setSpaceVue("systeme")}>
+                <Orbit size={16} />
+              </button>
               <button type="button" className="hud-btn" data-active={!muted} title={muted ? "Activer la voix" : "Couper la voix"} onClick={() => setMute(!muted, true, true)}>
                 {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
               </button>
@@ -1603,6 +1612,8 @@ export default function JarvisApp() {
           </div>
         </div>
       )}
+
+      {spaceVue && <SpacePanel vue={spaceVue} onClose={() => setSpaceVue(null)} />}
 
       {showOnboarding && payload && <Onboarding payload={payload} onFinish={finishOnboarding} onPreview={previewVoice} />}
 
