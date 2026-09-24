@@ -4,14 +4,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const action = new URL(req.url).searchParams.get("action") ?? "tles";
+  const url = new URL(req.url);
+  const action = url.searchParams.get("action") ?? "tles";
 
   if (action === "tles") {
     const tles = await fetchTles();
     return Response.json({ tles, count: tles.length, at: new Date().toISOString() });
   }
   if (action === "positions") {
-    const positions = await positionsNow();
+    const t = Number(url.searchParams.get("t"));
+    const positions = await positionsNow(Number.isFinite(t) && t > 0 ? t : undefined);
     return Response.json({ positions, at: new Date().toISOString() });
   }
   if (action === "iss") {

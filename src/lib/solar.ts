@@ -106,3 +106,42 @@ export function planetDistance(idA: string, idB: string, dateMs: number): number
   if (!a || !b) return null;
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) * AU_KM;
 }
+
+export interface MoonPosition {
+  /** Position héliocentrique écliptique (UA) — Terre + décalage géocentrique. */
+  x: number;
+  y: number;
+  z: number;
+  /** Distance Lune-Terre (km). */
+  distEarthKm: number;
+}
+
+const EARTH_RADIUS_KM = 6371;
+
+/** Position de la Lune (orbite képlérienne géocentrique, méthode de Schlyter). */
+export function moonPosition(dateMs: number): MoonPosition | null {
+  const earth = planetPosition("terre", dateMs);
+  if (!earth) return null;
+  const d = dateMs / 86_400_000 - 1.5;
+  const N = (125.1228 - 0.0529538083 * d) * D2R;
+  const i = 5.1454 * D2R;
+  const w = (318.0634 + 0.1643573223 * d) * D2R;
+  const a = 60.2666; // rayons terrestres
+  const e = 0.0549;
+  let M = (115.3654 + 13.0649929509 * d) % 360;
+  if (M > 180) M -= 360;
+  if (M < -180) M += 360;
+  M *= D2R;
+  let E = M + e * Math.sin(M);
+  for (let k = 0; k < 8; k++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+  const xv = a * (Math.cos(E) - e);
+  const yv = a * Math.sqrt(1 - e * e) * Math.sin(E);
+  const v = Math.atan2(yv, xv);
+  const r = Math.hypot(xv, yv); // rayons terrestres
+  const vw = v + w;
+  const gx = r * (Math.cos(N) * Math.cos(vw) - Math.sin(N) * Math.sin(vw) * Math.cos(i));
+  const gy = r * (Math.sin(N) * Math.cos(vw) + Math.cos(N) * Math.sin(vw) * Math.cos(i));
+  const gz = r * Math.sin(vw) * Math.sin(i);
+  const auFactor = EARTH_RADIUS_KM / AU_KM;
+  return { x: earth.x + gx * auFactor, y: earth.y + gy * auFactor, z: earth.z + gz * auFactor, distEarthKm: r * EARTH_RADIUS_KM };
+}

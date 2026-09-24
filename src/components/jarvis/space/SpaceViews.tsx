@@ -3,7 +3,7 @@
 // Vues Espace partagées : panneau intégré de JARVIS (SpacePanel) et page /espace.
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { solarSystem } from "@/lib/solar";
+import { moonPosition, solarSystem } from "@/lib/solar";
 
 /* ─── Utilitaires canvas ─────────────────────────────────────────────── */
 
@@ -66,6 +66,7 @@ export function SolarView() {
     const cy = h / 2 + pan.current.y;
     const base = Math.min(w, h) * 0.42 * zoom.current;
     ctx.clearRect(0, 0, w, h);
+    let earthPos: { px: number; py: number } | null = null;
 
     // Soleil
     const sunGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 46);
@@ -103,6 +104,27 @@ export function SolarView() {
       ctx.fillStyle = "rgba(223,247,255,0.85)";
       ctx.font = "10px ui-monospace, monospace";
       ctx.fillText(p.name, px + p.size + 5, py + 3);
+      if (p.id === "terre") {
+        earthPos = { px, py };
+      }
+    }
+
+    // La Lune, autour de la Terre
+    const moon = moonPosition(now);
+    if (moon && earthPos) {
+      const md = Math.hypot(moon.x, moon.y) || 1;
+      const mx = cx + (compress(md) * base * moon.x) / md;
+      const my = cy - (compress(md) * base * moon.y) / md;
+      ctx.fillStyle = "#e8e8ec";
+      ctx.shadowColor = "#ffffff";
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(mx, my, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(223,247,255,0.6)";
+      ctx.font = "9px ui-monospace, monospace";
+      ctx.fillText("Lune", mx + 5, my + 3);
     }
 
     ctx.fillStyle = `rgba(${r},${g},${b},0.7)`;
@@ -165,12 +187,28 @@ export function SolarView() {
 
 /* ─── Vue : satellites en direct (globe orthographique) ──────────────── */
 
+export const SAT_SPEEDS: { label: string; factor: number }[] = [
+  { label: "Temps réel", factor: 1 },
+  { label: "×60", factor: 60 },
+  { label: "×600", factor: 600 },
+];
+
 export function SatellitesView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [speedIdx, setSpeedIdx] = useState(0);
   const rot = useRef({ lon: 0, tilt: 0.45 });
   const drag = useRef<{ x: number; y: number } | null>(null);
+  const offset = useRef(0);
   const positions = useRef<{ name: string; group: string; lat: number; lon: number }[]>([]);
+
+  // Temps accéléré : décale la date demandée au serveur (l'ISS bouge alors visiblement).
+  useEffect(() => {
+    const tick = setInterval(() => {
+      offset.current += 100 * (SAT_SPEEDS[speedIdx].factor - 1);
+    }, 100);
+    return () => clearInterval(tick);
+  }, [speedIdx]);
 
   // Les positions SGP4 sont calculées par le serveur ; la page les redessine à 60 i/s.
   useEffect(() => {
@@ -178,7 +216,8 @@ export function SatellitesView() {
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {
-        const r = await fetch("/api/space?action=positions", { cache: "no-store" });
+        const t = Date.now() + offset.current;
+        const r = await fetch(`/api/space?action=positions&t=${t}`, { cache: "no-store" });
         const j = (await r.json()) as { positions?: typeof positions.current; error?: string };
         if (stop) return;
         if (j.positions) {
@@ -323,6 +362,13 @@ export function SatellitesView() {
   return (
     <div className="relative min-h-0 flex-1">
       <canvas ref={ref} className="h-full w-full cursor-grab touch-none" />
+      <div className="absolute right-3 top-3 flex gap-2">
+        {SAT_SPEEDS.map((s, i) => (
+          <button key={s.label} type="button" className="hud-btn !h-7 text-xs" data-active={speedIdx === i} onClick={() => setSpeedIdx(i)}>
+            {s.label}
+          </button>
+        ))}
+      </div>
       {error && <p className="absolute inset-x-0 top-3 mx-auto w-fit rounded border border-red-400/30 bg-red-400/10 px-3 py-1 text-xs text-red-200">⚠️ {error}</p>}
       {loading && !error && (
         <p className="absolute inset-0 grid place-items-center text-sm text-slate-500">

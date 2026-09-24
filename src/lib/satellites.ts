@@ -53,9 +53,9 @@ export async function fetchTles(): Promise<Tle[]> {
 }
 
 /** Positions géographiques de tous les satellites (SGP4 côté serveur — la page /espace les redessine). */
-export async function positionsNow(): Promise<{ name: string; group: string; lat: number; lon: number }[]> {
+export async function positionsNow(atMs?: number): Promise<{ name: string; group: string; lat: number; lon: number }[]> {
   const tles = await fetchTles();
-  const now = new Date();
+  const now = atMs ? new Date(atMs) : new Date();
   const gmst = gstime(now);
   const out: { name: string; group: string; lat: number; lon: number }[] = [];
   for (const t of tles) {

@@ -1450,6 +1450,7 @@ export default function JarvisApp() {
               </button>
               <button type="button" className="hud-btn" title="Espace : système solaire en temps réel et satellites en direct" onClick={() => setSpaceVue("systeme")}>
                 <Orbit size={16} />
+                <span className="hidden lg:inline">Espace</span>
               </button>
               <button type="button" className="hud-btn" data-active={!muted} title={muted ? "Activer la voix" : "Couper la voix"} onClick={() => setMute(!muted, true, true)}>
                 {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}

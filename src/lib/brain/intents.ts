@@ -10,7 +10,7 @@ import { THUNDERSTRUCK_TITLE, THUNDERSTRUCK_URL } from "@/lib/youtube";
 import { findApp, findFolder, launchApp, lockPc, openFolder, pcControlAvailable } from "./pc";
 import { gmailBody, gmailConnected, gmailCredentials, gmailList, gmailUnreadCount, agendaList, hasCalendarScope, type AgendaEvent } from "@/lib/gmail";
 import { issNow } from "@/lib/satellites";
-import { planetDistance, planetPosition } from "@/lib/solar";
+import { planetDistance, planetPosition, moonPosition } from "@/lib/solar";
 import { handleHome, looksLikeHomeCommand } from "./home-intent";
 import { haConfig } from "./home-assistant";
 import { favoritesOf, isTitle, updateSettings, type SettingsRow } from "./settings";
@@ -488,7 +488,7 @@ export const INTENTS: Intent[] = [
       const f = c.f;
       const R2R = (deg: number) => (deg < 0 ? "sud" : "nord");
       const asksIss = /(ou est|ou se trouve|position|localise|coordonnees)\b/.test(f) && /(station spatiale|l iss|l iss |iss)\b/.test(f);
-      const planet = X(/\b(?:ou est|ou se trouve|position de|localise)\s+(?:la\s+|le\s+)?(mercure|venus|terre|mars|jupiter|saturne|uranus|neptune)\b/, f);
+      const planet = X(/\b(?:ou est|ou se trouve|position de|localise)\s+(?:la\s+|le\s+)?(mercure|venus|terre|mars|jupiter|saturne|uranus|neptune|lune)\b/, f);
       const asksDistance = X(/\bdistance\b.*\b(?:terre\s+)?-?\s*(mercure|venus|mars|jupiter|saturne|uranus|neptune)\b/, f);
       const asksView = /\b(montre|affiche|ouvre|lance|afficher|ouvrir)\b/.test(f) && /\b(systeme solaire|planetes?|satellites?|l espace|la galaxie)\b/.test(f);
       if (!asksIss && !planet && !asksDistance && !asksView) return null;
@@ -508,6 +508,13 @@ export const INTENTS: Intent[] = [
         );
       }
       const target = (planet?.[1] ?? asksDistance?.[1]) as string;
+      if (target === "lune") {
+        const moon = moonPosition(Date.now());
+        return say(
+          moon ? `La Lune se trouve à environ ${Math.round(moon.distEarthKm).toLocaleString("fr-FR")} kilomètres de la Terre, ${c.sir}.` : `Je n'ai pas pu localiser la Lune, ${c.sir}.`,
+          { source: "espace", actions: [{ type: "espace", vue: "systeme" }] },
+        );
+      }
       if (target) {
         const pos = planetPosition(target, Date.now());
         if (!pos) return null;
