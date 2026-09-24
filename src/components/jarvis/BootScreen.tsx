@@ -198,6 +198,9 @@ export default function BootScreen({ aiLabel, music, musicOptions, musicLabel, a
       className={`hud-bg fixed inset-0 z-50 grid place-items-center overflow-hidden transition-opacity duration-700 ${phase === "exit" ? "pointer-events-none opacity-0" : "opacity-100"}`}
     >
       <div className="hud-grid pointer-events-none absolute inset-0" />
+      <div className="hud-orbit pointer-events-none absolute inset-0" />
+      <div className="hud-particles pointer-events-none absolute inset-x-0" />
+      <div className="hud-sweep pointer-events-none absolute inset-x-0" />
       <div className="scanlines pointer-events-none absolute inset-0" />
       <div className="vignette pointer-events-none absolute inset-0" />
       {flash > 0 && <div key={flash} className="boot-flash pointer-events-none absolute inset-0" />}

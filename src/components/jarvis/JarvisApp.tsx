@@ -1371,6 +1371,9 @@ export default function JarvisApp() {
   return (
     <div className="party-fx hud-bg relative h-dvh overflow-hidden text-slate-100">
       <div className="hud-grid pointer-events-none fixed inset-0" />
+      <div className="hud-orbit pointer-events-none fixed inset-0" />
+      <div className="hud-particles pointer-events-none fixed inset-x-0" />
+      <div className="hud-sweep pointer-events-none fixed inset-x-0" />
       <div className="scanlines pointer-events-none fixed inset-0" />
       <div className="vignette pointer-events-none fixed inset-0" />
 

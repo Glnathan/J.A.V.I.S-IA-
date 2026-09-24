@@ -63,6 +63,73 @@ body {
   background-size: 44px 44px;
   mask-image: radial-gradient(ellipse at 50% 40%, #000 20%, transparent 75%);
   -webkit-mask-image: radial-gradient(ellipse at 50% 40%, #000 20%, transparent 75%);
+  animation: grid-breathe 7s ease-in-out infinite;
+}
+@keyframes grid-breathe {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* ─── Effets holographiques ─────────────────────────────────── */
+/* Particules lumineuses qui montent lentement (transform : fluide même sur téléphone). */
+.hud-particles {
+  top: -100%;
+  height: 300%;
+  background-image:
+    radial-gradient(circle, rgb(var(--hud-rgb) / 0.55) 1px, transparent 1.6px),
+    radial-gradient(circle, rgb(var(--hud-rgb) / 0.28) 1.2px, transparent 1.8px);
+  background-size: 340px 340px, 210px 210px;
+  background-position: 0 0, 130px 60px;
+  opacity: 0.45;
+  animation: particles-rise 80s linear infinite;
+}
+@keyframes particles-rise {
+  to {
+    transform: translateY(-33.333%);
+  }
+}
+/* Faisceau de balayage qui traverse l'écran (le « scan » des films SF). */
+.hud-sweep {
+  top: 0;
+  height: 30vh;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(var(--hud-rgb) / 0.045) 42%,
+    rgb(var(--hud-rgb) / 0.12) 50%,
+    rgb(var(--hud-rgb) / 0.045) 58%,
+    transparent
+  );
+  opacity: 0;
+  animation: hud-sweep 11s ease-in-out infinite;
+}
+@keyframes hud-sweep {
+  0% {
+    transform: translateY(-35vh);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(115vh);
+    opacity: 0;
+  }
+}
+/* Anneaux concentriques derrière le réacteur (statique, coût nul). */
+.hud-orbit {
+  background: repeating-radial-gradient(
+    circle at 50% 34%,
+    transparent 0 110px,
+    rgb(var(--hud-rgb) / 0.05) 110px 111px,
+    transparent 111px 220px
+  );
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 85%);
 }
 .scanlines {
   background: repeating-linear-gradient(to bottom, rgb(255 255 255 / 0.018) 0 1px, transparent 1px 3px);
@@ -80,6 +147,7 @@ body {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
     inset 0 0 30px rgb(var(--hud-rgb) / 0.04),
     0 10px 30px rgb(0 0 0 / 0.35);
 }
@@ -336,7 +404,10 @@ input[type="datetime-local"].hud-field {
   .caret,
   .typing-bar,
   .slide-in,
-  .fade-in {
+  .fade-in,
+  .hud-grid,
+  .hud-particles,
+  .hud-sweep {
     animation: none;
   }
 }
