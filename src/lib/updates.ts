@@ -5,7 +5,7 @@ import path from "node:path";
 import { APP_VERSION } from "@/lib/version";
 import { dataDir } from "@/lib/runtime";
 
-const REPO = "Glnathan/J.A.R.V.I.S-IA2.0";
+const REPO = "Glnathan/J.A.V.I.S-IA-";
 const API = `https://api.github.com/repos/${REPO}/releases/latest`;
 
 export interface UpdateCheck {
