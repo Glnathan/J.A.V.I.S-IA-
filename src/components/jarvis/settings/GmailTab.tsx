@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ExternalLink, Loader2, Mail, RefreshCw, Search, XCircle } from "lucide-react";
+import { CheckCircle2, Calendar, ExternalLink, Loader2, Mail, Maximize2, RefreshCw, Search, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Code } from "./ui";
 
@@ -13,15 +13,25 @@ interface GmailMessage {
   snippet: string;
 }
 
+interface AgendaEvent {
+  id: string;
+  title: string;
+  start: string;
+  allDay: boolean;
+  location: string;
+}
+
 interface GmailStatus {
   configured: boolean;
   connected: boolean;
+  agenda?: boolean;
   credentialsPath: string;
 }
 
 export default function GmailTab() {
   const [status, setStatus] = useState<GmailStatus | null>(null);
   const [messages, setMessages] = useState<GmailMessage[]>([]);
+  const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [query, setQuery] = useState("");
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,15 +61,25 @@ export default function GmailTab() {
     }
   }, []);
 
+  const loadAgenda = useCallback(async () => {
+    if (!status?.agenda) return;
+    try {
+      const r = await fetch("/api/gmail?action=agenda&max=6", { cache: "no-store" });
+      const j = (await r.json()) as { events?: AgendaEvent[] };
+      if (r.ok) setEvents(j.events ?? []);
+    } catch {
+      /* hors ligne */
+    }
+  }, [status?.agenda]);
+
   useEffect(() => {
-    void loadStatus().then(() => {
-      /* la liste se charge si connecté */
-    });
+    void loadStatus();
   }, [loadStatus]);
 
   useEffect(() => {
     if (status?.connected) void loadMails();
-  }, [status?.connected, loadMails]);
+    if (status?.agenda) void loadAgenda();
+  }, [status?.connected, status?.agenda, loadMails, loadAgenda]);
 
   const connect = async () => {
     setBusy(true);
@@ -140,6 +160,9 @@ export default function GmailTab() {
             <button type="button" className="hud-btn" onClick={() => void loadMails()} disabled={busy}>
               {busy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Actualiser
             </button>
+            <button type="button" className="hud-btn" onClick={() => window.open("/mails", "_blank", "noopener")} title="Fenêtre agrandie, redimensionnable et plein écran (F11)">
+              <Maximize2 size={13} /> Ouvrir en grand
+            </button>
           </div>
           {error && <p className="text-sm text-red-300">⚠️ {error}</p>}
           <div className="scroll-hud max-h-[46dvh] space-y-2 overflow-y-auto pr-1">
@@ -156,6 +179,47 @@ export default function GmailTab() {
             ))}
             {!filtered.length && <p className="py-6 text-center text-sm text-slate-500">Aucun mail à afficher.</p>}
           </div>
+        </div>
+      )}
+
+      {status.connected && (
+        <div className="rounded border border-hud/15 bg-black/20 p-4">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <span className="label flex items-center gap-2">
+              <Calendar size={13} /> Prochains rendez-vous
+            </span>
+            {status.agenda ? (
+              <button type="button" className="hud-btn !h-7" onClick={() => void loadAgenda()}>
+                <RefreshCw size={12} />
+              </button>
+            ) : (
+              <button type="button" className="hud-btn !h-7" onClick={() => void connect()}>
+                Activer l'agenda
+              </button>
+            )}
+          </div>
+          {status.agenda ? (
+            events.length ? (
+              <ul className="space-y-1.5 text-sm">
+                {events.map((e) => (
+                  <li key={e.id} className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-hud">
+                      {new Date(e.start).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", ...(e.allDay ? {} : { hour: "2-digit", minute: "2-digit" }) })}
+                    </span>
+                    <span className="text-slate-100">{e.title}</span>
+                    {e.location && <span className="text-xs text-slate-500">{e.location}</span>}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-500">Aucun rendez-vous à venir.</p>
+            )
+          ) : (
+            <p className="text-xs leading-relaxed text-slate-400">
+              L'agenda demande une autorisation supplémentaire : cliquez « Activer l'agenda », Google vous demandera de confirmer, puis dites
+              « Jarvis, quel est mon prochain rendez-vous ? ».
+            </p>
+          )}
         </div>
       )}
 

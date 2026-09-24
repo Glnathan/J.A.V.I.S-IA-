@@ -8,7 +8,7 @@ import { fetchNews, newsTopic, topicName } from "./news";
 import { isDesktop } from "@/lib/runtime";
 import { THUNDERSTRUCK_TITLE, THUNDERSTRUCK_URL } from "@/lib/youtube";
 import { findApp, findFolder, launchApp, lockPc, openFolder, pcControlAvailable } from "./pc";
-import { gmailBody, gmailConnected, gmailCredentials, gmailList, gmailUnreadCount } from "@/lib/gmail";
+import { gmailBody, gmailConnected, gmailCredentials, gmailList, gmailUnreadCount, agendaList, hasCalendarScope, type AgendaEvent } from "@/lib/gmail";
 import { handleHome, looksLikeHomeCommand } from "./home-intent";
 import { haConfig } from "./home-assistant";
 import { favoritesOf, isTitle, updateSettings, type SettingsRow } from "./settings";
@@ -168,6 +168,7 @@ const HELP_ITEMS = [
   "👤 Profil — « Appelle-moi Nathan », « Appelle-moi monsieur », « Je m'appelle… »",
   "🎭 Protocoles — « Protocole fête », « Mode alerte », « Mode silencieux », « Protocole focus / nuit / sport / travail / jeu »",
   "✉️ Mails — « Lis mes mails », « Ai-je des mails non lus ? », « Lis mon dernier mail » (Gmail, Paramètres → Mails)",
+  "📅 Agenda — « Quel est mon prochain rendez-vous ? », « Qu'est-ce qui m'attend cette semaine ? » (Google Agenda)",
   "🎙️ Écoute permanente — « Active l'écoute permanente », puis dites « Jarvis… »",
 ];
 
@@ -422,6 +423,35 @@ export const INTENTS: Intent[] = [
         );
       } catch (e) {
         return say(`Je n'ai pas pu consulter Gmail, ${c.sir}. ${e instanceof Error ? e.message : "Erreur inconnue."}`, { source: "mail" });
+      }
+    },
+  },
+
+  // ─── Agenda Google ───────────────────────────────────────────────────
+  {
+    name: "agenda",
+    run: async (c) => {
+      const f = c.f;
+      const asksAgenda = /\b(agenda|rendez vous|rdv|programme|planning|calendrier)\b/.test(f) && /\b(quel|quels|mes|mon|prochain|prochains|aujourd hui|demain|semaine|dis|donne|affiche)\b/.test(f);
+      const asksAhead = /qu est ce qui m attend|quoi de prevu|mes (rendez vous|rdv|evenements)/.test(f);
+      if (!asksAgenda && !asksAhead) return null;
+      if (!gmailConnected()) return say(`Je ne suis pas encore relié à votre compte Google, ${c.sir}. Connectez-moi depuis Paramètres → Mails.`, { source: "agenda" });
+      if (!hasCalendarScope()) return say(`Mon accès à l'agenda n'est pas encore autorisé, ${c.sir}. Reconnectez-moi depuis Paramètres → Mails (bouton Agenda) pour l'activer.`, { source: "agenda" });
+      try {
+        const events = await agendaList(8);
+        if (!events.length) return say(`Aucun rendez-vous à venir, ${c.sir}. Votre agenda est dégagé.`, { source: "agenda" });
+        const fmt = (e: AgendaEvent) => {
+          const d = new Date(e.start);
+          const when = e.allDay ? d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }) : d.toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+          return `${when} : ${e.title}`;
+        };
+        const next = events.slice(0, 3).map(fmt).join(" ; ");
+        return say(`Voici votre programme, ${c.sir}. ${next}.`, {
+          source: "agenda",
+          cards: [{ kind: "list", title: "Prochains rendez-vous", items: events.map(fmt), ordered: true }],
+        });
+      } catch (e) {
+        return say(`Je n'ai pas pu consulter votre agenda, ${c.sir}. ${e instanceof Error ? e.message : "Erreur inconnue."}`, { source: "agenda" });
       }
     },
   },

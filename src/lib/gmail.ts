@@ -1,10 +1,12 @@
-// Module Gmail (phase 1) : OAuth « Application de bureau » (credentials.json dans le dossier de données)
-// + lecture des messages via l'API REST de Gmail. Aucune dépendance supplémentaire.
+// Module Gmail + Agenda (Google) : OAuth « Application de bureau » (credentials.json dans le dossier de données)
+// + lecture des messages et des événements via les API REST. Aucune dépendance supplémentaire.
 import fs from "node:fs";
 import path from "node:path";
 import { dataDir } from "@/lib/runtime";
 
-const SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"];
+const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+const SCOPES = [GMAIL_SCOPE, CALENDAR_SCOPE];
 const CREDENTIALS_FILE = "credentials.json";
 const TOKEN_FILE = "gmail-token.json";
 
@@ -17,6 +19,8 @@ export interface GmailToken {
   access_token: string;
   refresh_token?: string;
   expires_at: number;
+  /** Portées accordées par Google (l'agenda demande une reconnexion après ajout de la portée). */
+  scope?: string;
 }
 
 export function credentialsPath(): string {
@@ -80,8 +84,8 @@ async function tokenRequest(body: Record<string, string>): Promise<GmailToken> {
     body: new URLSearchParams({ ...body, client_id: c.clientId, client_secret: c.clientSecret }).toString(),
   });
   if (!r.ok) throw new Error(`Google a refusé la requête (HTTP ${r.status})`);
-  const j = (await r.json()) as { access_token: string; refresh_token?: string; expires_in: number };
-  return { access_token: j.access_token, refresh_token: j.refresh_token, expires_at: Date.now() + Math.max(60, j.expires_in - 60) * 1000 };
+  const j = (await r.json()) as { access_token: string; refresh_token?: string; expires_in: number; scope?: string };
+  return { access_token: j.access_token, refresh_token: j.refresh_token, expires_at: Date.now() + Math.max(60, j.expires_in - 60) * 1000, scope: j.scope };
 }
 
 /** Échange le code d'autorisation Google contre un token (récupère le refresh_token pour les connexions suivantes). */
@@ -110,11 +114,56 @@ export async function gmailAccessToken(): Promise<string | null> {
   try {
     const fresh = await tokenRequest({ refresh_token: t.refresh_token, grant_type: "refresh_token" });
     fresh.refresh_token = t.refresh_token;
+    fresh.scope = fresh.scope ?? t.scope;
     saveToken(fresh);
     return fresh.access_token;
   } catch {
     return null;
   }
+}
+
+/** L'utilisateur a-t-il accordé la portée Agenda ? (sinon : « Connecter » de nouveau pour l'ajouter) */
+export function hasCalendarScope(): boolean {
+  try {
+    const t = JSON.parse(fs.readFileSync(tokenPath(), "utf8")) as GmailToken;
+    return (t.scope ?? "").includes("calendar");
+  } catch {
+    return false;
+  }
+}
+
+export interface AgendaEvent {
+  id: string;
+  title: string;
+  start: string;
+  allDay: boolean;
+  location: string;
+}
+
+/** Prochains événements du calendrier principal (à partir de maintenant). */
+export async function agendaList(max = 10): Promise<AgendaEvent[]> {
+  const token = await gmailAccessToken();
+  if (!token) throw new Error("Google n'est pas connecté");
+  const params = new URLSearchParams({
+    maxResults: String(Math.min(25, Math.max(1, max))),
+    orderBy: "startTime",
+    singleEvents: "true",
+    timeMin: new Date().toISOString(),
+  });
+  const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) throw new Error(`l'Agenda a répondu HTTP ${r.status}`);
+  const j = (await r.json()) as {
+    items?: { id: string; summary?: string; location?: string; start?: { dateTime?: string; date?: string } }[];
+  };
+  return (j.items ?? []).map((e) => ({
+    id: e.id,
+    title: e.summary || "(sans titre)",
+    start: e.start?.dateTime ?? e.start?.date ?? "",
+    allDay: Boolean(e.start?.date && !e.start?.dateTime),
+    location: e.location ?? "",
+  }));
 }
 
 export interface GmailMessage {

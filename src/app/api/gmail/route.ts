@@ -1,4 +1,5 @@
 import {
+  agendaList,
   gmailAuthUrl,
   gmailBody,
   gmailConnected,
@@ -6,6 +7,7 @@ import {
   gmailDisconnect,
   gmailList,
   credentialsPath,
+  hasCalendarScope,
 } from "@/lib/gmail";
 
 export const runtime = "nodejs";
@@ -19,8 +21,17 @@ export async function GET(req: Request) {
     return Response.json({
       configured: Boolean(gmailCredentials()),
       connected: gmailConnected(),
+      agenda: hasCalendarScope(),
       credentialsPath: credentialsPath(),
     });
+  }
+  if (action === "agenda") {
+    try {
+      const events = await agendaList(Number(url.searchParams.get("max")) || 8);
+      return Response.json({ events });
+    } catch (e) {
+      return Response.json({ error: e instanceof Error ? e.message : "Erreur Agenda" }, { status: 400 });
+    }
   }
   if (action === "url") {
     const auth = gmailAuthUrl(Number(url.port) || 3777);
