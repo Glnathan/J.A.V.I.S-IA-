@@ -192,9 +192,14 @@ async function gmailFetch<T>(pathname: string, token: string): Promise<T> {
   const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${pathname}`, {
     headers: { authorization: `Bearer ${token}` },
   });
+  if (r.status === 429) throw new Error("quota Google atteint (HTTP 429) — patientez environ une minute avant de réessayer");
   if (!r.ok) throw new Error(`Gmail a répondu HTTP ${r.status}`);
   return (await r.json()) as T;
 }
+
+// Cache mémoire (les 50 mails = ~50 requêtes ; la limite Google est de 250 unités/minute).
+const listCache = new Map<string, { at: number; data: GmailMessage[] }>();
+const CACHE_MS = 60_000;
 
 function headerOf(m: GmailRaw, name: string): string {
   return m.payload?.headers?.find((h) => h.name.toLowerCase() === name)?.value ?? "";
@@ -223,10 +228,13 @@ function toMessage(m: GmailRaw): GmailMessage {
   };
 }
 
-/** Liste les derniers messages (50 max, recherche Gmail possible : "is:unread", "from:x", …). */
+/** Liste les derniers messages (50 max, recherche Gmail possible : "is:unread", "from:x", …) — cache 60 s. */
 export async function gmailList(max = 25, query = ""): Promise<GmailMessage[]> {
   const token = await gmailAccessToken();
   if (!token) throw new Error("Gmail n'est pas connecté");
+  const key = `list:${Math.min(50, Math.max(1, max))}:${query.trim()}`;
+  const hit = listCache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
   const params = new URLSearchParams({ maxResults: String(Math.min(50, Math.max(1, max))) });
   if (query.trim()) params.set("q", query.trim());
   const list = await gmailFetch<{ messages?: { id: string }[] }>(`/messages?${params}`, token);
@@ -237,6 +245,7 @@ export async function gmailList(max = 25, query = ""): Promise<GmailMessage[]> {
       return toMessage(raw);
     }),
   );
+  listCache.set(key, { at: Date.now(), data: messages });
   return messages;
 }
 
