@@ -11,7 +11,9 @@ import {
   Cpu,
   Gauge as GaugeIcon,
   ListTodo,
+  Mail,
   Plus,
+  Puzzle,
   Server,
   Timer as TimerIcon,
   Trash2,
@@ -19,7 +21,7 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { AIStatus, MemoryItem, SystemStats, TaskItem, WeatherData } from "@/lib/types";
 
 export interface Timer {
@@ -494,6 +496,182 @@ export function MemoryPanel({ memories, onAdd, onDelete }: MemoryPanelProps) {
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+
+/* ─── Widget Agenda (Google Calendar) ─────────────────────────────────── */
+
+interface AgendaEvent {
+  id: string;
+  title: string;
+  start: string;
+  allDay: boolean;
+  location: string;
+}
+
+export function AgendaPanel({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const [events, setEvents] = useState<AgendaEvent[] | null>(null);
+  const [status, setStatus] = useState<{ connected: boolean; agenda?: boolean } | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const s = await (await fetch("/api/gmail?action=status", { cache: "no-store" })).json();
+      setStatus(s);
+      if (s.connected && s.agenda) {
+        const j = await (await fetch("/api/gmail?action=agenda&max=4", { cache: "no-store" })).json();
+        setEvents(j.events ?? []);
+      }
+    } catch {
+      /* hors ligne */
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    const id = setInterval(load, 300000); // rafraîchi toutes les 5 minutes
+    return () => clearInterval(id);
+  }, [load]);
+
+  const fmt = (e: AgendaEvent) =>
+    e.allDay
+      ? new Date(e.start).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })
+      : new Date(e.start).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div className="hud-panel p-4">
+      <PanelHeader icon={<CalendarClock size={14} />} title="Agenda" right={events && events.length ? <span className="font-mono text-[10px] text-hud">{events.length} à venir</span> : undefined} />
+      {status === null ? (
+        <p className="text-xs text-slate-500">Chargement…</p>
+      ) : !status.connected || !status.agenda ? (
+        <p className="text-xs leading-relaxed text-slate-400">
+          Agenda non connecté.
+          <button type="button" className="ml-1 text-hud underline underline-offset-2" onClick={onOpenSettings}>
+            Activer
+          </button>
+        </p>
+      ) : events === null ? (
+        <p className="text-xs text-slate-500">Chargement des rendez-vous…</p>
+      ) : events.length === 0 ? (
+        <p className="text-xs text-slate-500">Aucun rendez-vous à venir.</p>
+      ) : (
+        <ul className="space-y-2">
+          {events.map((e) => (
+            <li key={e.id} className="flex items-baseline gap-2 text-sm">
+              <span className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-hud">{fmt(e)}</span>
+              <span className="min-w-0 flex-1 truncate text-slate-100" title={`${e.title}${e.location ? ` — ${e.location}` : ""}`}>
+                {e.title}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/* ─── Widget Mails (Gmail) ────────────────────────────────────────────── */
+
+export function MailsPanel({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const [data, setData] = useState<{ unread: number; last: { id: string; from: string; subject: string }[] } | null>(null);
+  const [connected, setConnected] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const s = await (await fetch("/api/gmail?action=status", { cache: "no-store" })).json();
+      setConnected(Boolean(s.connected));
+      if (!s.connected) return;
+      const j = await (await fetch("/api/gmail?action=list&max=15", { cache: "no-store" })).json();
+      const messages = (j.messages ?? []) as { id: string; from: string; subject: string; unread: boolean }[];
+      setData({ unread: messages.filter((m) => m.unread).length, last: messages.slice(0, 3) });
+    } catch {
+      /* hors ligne */
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    const id = setInterval(load, 300000);
+    return () => clearInterval(id);
+  }, [load]);
+
+  return (
+    <div className="hud-panel p-4">
+      <PanelHeader
+        icon={<Mail size={14} />}
+        title="Mails"
+        right={
+          connected ? (
+            <span className={`font-mono text-[10px] ${data?.unread ? "text-amber-300" : "text-emerald-300"}`}>{data ? (data.unread ? `${data.unread} non lus` : "à jour") : "…"}</span>
+          ) : undefined
+        }
+      />
+      {!connected ? (
+        <p className="text-xs leading-relaxed text-slate-400">
+          Gmail non connecté.
+          <button type="button" className="ml-1 text-hud underline underline-offset-2" onClick={onOpenSettings}>
+            Activer
+          </button>
+        </p>
+      ) : data === null ? (
+        <p className="text-xs text-slate-500">Chargement…</p>
+      ) : data.last.length === 0 ? (
+        <p className="text-xs text-slate-500">Aucun mail récent.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {data.last.map((m) => (
+            <li key={m.id} className="text-xs leading-snug">
+              <span className="block truncate text-slate-100">{m.subject}</span>
+              <span className="block truncate text-[10px] text-hud">{m.from}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/* ─── Widget Python & plugins ─────────────────────────────────────────── */
+
+interface PluginsPayloadLite {
+  enabled: boolean;
+  python: { found: boolean; version?: string; origin?: string };
+  plugins: { name: string }[];
+}
+
+export function PythonPanel({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const [data, setData] = useState<PluginsPayloadLite | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const j = (await (await fetch("/api/plugins", { cache: "no-store" })).json()) as PluginsPayloadLite;
+        setData(j);
+      } catch {
+        /* hors ligne */
+      }
+    })();
+  }, []);
+
+  return (
+    <div className="hud-panel p-4">
+      <PanelHeader
+        icon={<Puzzle size={14} />}
+        title="Python & plugins"
+        right={data ? <span className={`font-mono text-[10px] ${data.python.found ? "text-emerald-300" : "text-amber-300"}`}>{data.python.found ? data.python.version ?? "prêt" : "absent"}</span> : undefined}
+      />
+      {data === null ? (
+        <p className="text-xs text-slate-500">Chargement…</p>
+      ) : (
+        <p className="text-xs leading-relaxed text-slate-400">
+          {data.enabled ? `${data.plugins.length} plugin${data.plugins.length > 1 ? "s" : ""} chargé${data.plugins.length > 1 ? "s" : ""}` : "Plugins désactivés"}
+          {data.python.origin === "embedded" ? " · Python intégré" : data.python.origin === "system" ? " · Python système" : ""}.
+          <button type="button" className="ml-1 text-hud underline underline-offset-2" onClick={onOpenSettings}>
+            Gérer
+          </button>
+        </p>
       )}
     </div>
   );

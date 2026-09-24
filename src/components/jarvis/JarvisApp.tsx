@@ -32,7 +32,7 @@ import HomePanel from "./HomePanel";
 import MicDiagnostic from "./MicDiagnostic";
 import Onboarding from "./Onboarding";
 import SettingsModal, { type SettingsTab } from "./SettingsModal";
-import { AICorePanel, Clock, MemoryPanel, SystemPanel, TasksPanel, TimersPanel, WeatherWidget, type Timer } from "./SidePanels";
+import { AICorePanel, AgendaPanel, Clock, MailsPanel, MemoryPanel, PythonPanel, SystemPanel, TasksPanel, TimersPanel, WeatherWidget, type Timer } from "./SidePanels";
 import {
   browserInfo,
   captureErrorMessage,
@@ -1492,6 +1492,9 @@ export default function JarvisApp() {
               <SystemPanel />
               <WeatherWidget city={payload?.settings.city || "Paris"} />
               <AICorePanel ai={payload?.ai} onConfigure={() => setSettingsTab("ai")} />
+              <AgendaPanel onOpenSettings={() => setSettingsTab("mail")} />
+              <MailsPanel onOpenSettings={() => setSettingsTab("mail")} />
+              <PythonPanel onOpenSettings={() => setSettingsTab("plugins")} />
             </aside>
 
             <section className={`${mobileTab === "chat" ? "flex" : "hidden"} min-h-0 flex-col lg:flex`}>
