@@ -163,6 +163,7 @@ export default function JarvisApp() {
   const [muted, setMuted] = useState(false);
   const [wakeMode, setWakeMode] = useState(false);
   const [theme, setTheme] = useState<ThemeName>("cyan");
+  const [themeFlash, setThemeFlash] = useState(0);
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [mobileTab, setMobileTab] = useState<"chat" | "system" | "tasks">("chat");
@@ -754,11 +755,25 @@ export default function JarvisApp() {
     setTimers(timersRef.current);
   };
 
+  // Viseur HUD (Iron Man) : suit le curseur ; parallaxe des couches de fond avec la souris.
+  const reticleRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const root = document.documentElement;
+      root.style.setProperty("--mx", ((e.clientX / window.innerWidth) * 2 - 1).toFixed(3));
+      root.style.setProperty("--my", ((e.clientY / window.innerHeight) * 2 - 1).toFixed(3));
+      if (reticleRef.current) reticleRef.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px) rotate(45deg)`;
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
+
   const applyTheme = (t: ThemeName, duration?: number) => {
     if (themeTimerRef.current) clearTimeout(themeTimerRef.current);
     themeTimerRef.current = null;
     if (t !== "party") baseThemeRef.current = t;
     setTheme(t);
+    setThemeFlash((n) => n + 1);
     if (t === "party") themeTimerRef.current = setTimeout(() => setTheme(baseThemeRef.current), duration ?? 30000);
   };
 
@@ -1374,6 +1389,8 @@ export default function JarvisApp() {
       <div className="hud-orbit pointer-events-none fixed inset-0" />
       <div className="hud-particles pointer-events-none fixed inset-x-0" />
       <div className="hud-sweep pointer-events-none fixed inset-x-0" />
+      <div ref={reticleRef} className="hud-reticle" aria-hidden />
+      {themeFlash > 0 && <div key={themeFlash} className="boot-flash pointer-events-none fixed inset-0 z-40" />}
       <div className="scanlines pointer-events-none fixed inset-0" />
       <div className="vignette pointer-events-none fixed inset-0" />
 
