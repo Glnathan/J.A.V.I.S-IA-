@@ -32,7 +32,9 @@ function candidates(): string[] {
 let resolved: string | null | undefined;
 
 export function tailscaleBinary(): string | null {
-  if (resolved !== undefined) return resolved;
+  // Cache seulement les détections réussies : une installation de Tailscale après le démarrage
+  // de JARVIS doit être détectée sans redémarrage.
+  if (typeof resolved === "string") return resolved;
   resolved = null;
   for (const c of candidates()) {
     if (path.isAbsolute(c)) {
