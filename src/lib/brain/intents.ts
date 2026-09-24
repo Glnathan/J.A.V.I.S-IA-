@@ -165,7 +165,7 @@ const HELP_ITEMS = [
   "💻 PC — « Ouvre la calculatrice », « Diagnostic système »",
   "🏠 Maison — « Allume la lumière du salon », « Quelle température dans la chambre ? » (Home Assistant)",
   "👤 Profil — « Appelle-moi Nathan », « Appelle-moi monsieur », « Je m'appelle… »",
-  "🎭 Protocoles — « Protocole fête », « Mode alerte », « Mode silencieux »",
+  "🎭 Protocoles — « Protocole fête », « Mode alerte », « Mode silencieux », « Protocole focus / nuit / sport »",
   "🎙️ Écoute permanente — « Active l'écoute permanente », puis dites « Jarvis… »",
 ];
 
@@ -330,8 +330,20 @@ export const INTENTS: Intent[] = [
         if (!isDesktop()) return say(`Dans la version web, il vous suffit de fermer l'onglet, ${c.sir}. Je reste en veille jusqu'à votre retour.`);
         return say(`Désactivation des systèmes. À bientôt, ${c.sir}.`, { actions: [{ type: "quit" }] });
       }
+      if (/((protocole|mode)\s+(focus|concentration))/.test(f))
+        return say(`Protocole focus activé. Vingt-cinq minutes de concentration minutées, ${c.sir}. Je vous préviens à la fin, sans aucune distraction.`, {
+          actions: [{ type: "timer", seconds: 1500, label: "Focus" }],
+        });
+      if (/((protocole|mode)\s+(nuit|dodo|sommeil))/.test(f))
+        return say(`Protocole nuit activé. Interface en rouge doux et musique arrêtée. Je veille sur vos systèmes pendant votre sommeil, ${c.sir}.`, {
+          actions: [{ type: "theme", theme: "red" }, { type: "stop_music" }],
+        });
+      if (/((protocole|mode)\s+(sport|entrainement|muscu))/.test(f))
+        return say(`Protocole sport activé. Musique d'échauffement lancée et dix minutes au chrono, ${c.sir}. Donnez tout !`, {
+          actions: [{ type: "play_music", kind: "boot" }, { type: "timer", seconds: 600, label: "Sport" }],
+        });
       const proto = X(/\bprotocole\s+([a-z0-9][a-z0-9 ]{1,30}?)\s*$/, f);
-      if (proto) return say(`Je ne connais pas le protocole « ${grab(c, proto, 1)} », ${c.sir}. Protocoles disponibles : fête, alerte, Mark, silence et nettoyage.`);
+      if (proto) return say(`Je ne connais pas le protocole « ${grab(c, proto, 1)} », ${c.sir}. Protocoles disponibles : fête, alerte, Mark, silence, nettoyage, focus, nuit et sport.`);
       return null;
     },
   },
