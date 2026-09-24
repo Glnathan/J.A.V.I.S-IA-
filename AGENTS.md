@@ -40,6 +40,9 @@ PostgreSQL / PGlite · plugins Python (pont JSON sur stdin/stdout) · NSIS pour 
 - `src/lib/defaults.ts` : profil par défaut (prénom « Nathan », appellation) · `src/components/jarvis/Onboarding.tsx` : configuration au premier lancement
 - `src/lib/desktop/profile.ts` : prénom choisi dans l'installateur (`profil-installation.ini`) et préférences du lanceur (`lanceur.json`)
 - `src/lib/brain/{weather,news,wiki,math,time-parse,text}.ts` : services et analyse du français
+- `src/lib/gmail.ts` + `src/app/api/gmail/` : module Gmail (OAuth « Application de bureau », `credentials.json` dans le dossier de
+  données, token dans `gmail-token.json`) — lecture seule : liste, non lus, corps du mail. Onglet `settings/GmailTab.tsx`, intention « mail »
+  de `intents.ts` (« lis mes mails »)
 - `src/lib/client/` : synthèse vocale (`speech.ts`), reconnaissance (`recognition.ts`), effets (`sounds.ts`)
 - Musique de démarrage : `src/lib/client/boot-theme.ts` (`startBootMusic`, registre « une musique à la fois », baisse du volume
   quand JARVIS parle), `youtube-embed.ts` (lecteur YouTube officiel piloté par postMessage, sans script tiers),

@@ -8,6 +8,7 @@ import { fetchNews, newsTopic, topicName } from "./news";
 import { isDesktop } from "@/lib/runtime";
 import { THUNDERSTRUCK_TITLE, THUNDERSTRUCK_URL } from "@/lib/youtube";
 import { findApp, findFolder, launchApp, lockPc, openFolder, pcControlAvailable } from "./pc";
+import { gmailBody, gmailConnected, gmailCredentials, gmailList, gmailUnreadCount } from "@/lib/gmail";
 import { handleHome, looksLikeHomeCommand } from "./home-intent";
 import { haConfig } from "./home-assistant";
 import { favoritesOf, isTitle, updateSettings, type SettingsRow } from "./settings";
@@ -165,7 +166,8 @@ const HELP_ITEMS = [
   "💻 PC — « Ouvre la calculatrice », « Diagnostic système »",
   "🏠 Maison — « Allume la lumière du salon », « Quelle température dans la chambre ? » (Home Assistant)",
   "👤 Profil — « Appelle-moi Nathan », « Appelle-moi monsieur », « Je m'appelle… »",
-  "🎭 Protocoles — « Protocole fête », « Mode alerte », « Mode silencieux », « Protocole focus / nuit / sport »",
+  "🎭 Protocoles — « Protocole fête », « Mode alerte », « Mode silencieux », « Protocole focus / nuit / sport / travail / jeu »",
+  "✉️ Mails — « Lis mes mails », « Ai-je des mails non lus ? », « Lis mon dernier mail » (Gmail, Paramètres → Mails)",
   "🎙️ Écoute permanente — « Active l'écoute permanente », puis dites « Jarvis… »",
 ];
 
@@ -360,19 +362,67 @@ export const INTENTS: Intent[] = [
         return say(`Protocole travail activé, ${c.sir}. J'ouvre votre environnement : ${opened.join(", ") || "rien à ouvrir"}.`, { source: "pc", actions });
       }
       if (/((protocole|mode)\s+(jeu|gaming|steam))/.test(f)) {
-        if (!(c.s.pcControl && pcControlAvailable())) return say(pcUnavailable(c));
         const app = findApp("application steam");
-        if (!app) return say(`Je n'ai pas trouvé Steam dans mes applications, ${c.sir}.`, { source: "pc" });
+        const gamingTheme: ClientAction = { type: "theme", theme: "gaming" };
+        if (!(c.s.pcControl && pcControlAvailable())) return say(`Mode gaming activé sur l'interface, ${c.sir}. (Le lancement de Steam demande la version PC.)`, { actions: [gamingTheme] });
+        if (!app) return say(`Mode gaming activé, ${c.sir}. Je n'ai pas trouvé Steam dans mes applications.`, { actions: [gamingTheme] });
         const r = await launchApp(app);
         return r.ok
-          ? say(`Protocole jeu activé. Steam est lancé, ${c.sir}. Bonne partie !`, { source: "pc" })
+          ? say(`Protocole jeu activé. Steam est lancé, ${c.sir}. Bonne partie !`, { source: "pc", actions: [gamingTheme] })
           : app.web
-            ? say(`Steam ne semble pas installé, ${c.sir} ; j'ouvre la boutique en ligne.`, { source: "pc", actions: [{ type: "open", url: app.web, label: app.label }] })
-            : say(`Je n'ai pas réussi à ouvrir Steam, ${c.sir}.`, { source: "pc" });
+            ? say(`Mode gaming activé, ${c.sir}. Steam n'est pas installé ; j'ouvre la boutique en ligne.`, { source: "pc", actions: [gamingTheme, { type: "open", url: app.web, label: app.label }] })
+            : say(`Je n'ai pas réussi à ouvrir Steam, ${c.sir}.`, { source: "pc", actions: [gamingTheme] });
       }
       const proto = X(/\bprotocole\s+([a-z0-9][a-z0-9 ]{1,30}?)\s*$/, f);
       if (proto) return say(`Je ne connais pas le protocole « ${grab(c, proto, 1)} », ${c.sir}. Protocoles disponibles : fête, alerte, Mark, silence, nettoyage, focus, nuit, sport, travail et jeu.`);
       return null;
+    },
+  },
+
+  // ─── Mails (Gmail) ───────────────────────────────────────────────────
+  {
+    name: "mail",
+    run: async (c) => {
+      const f = c.f;
+      const asksUnread = /\b(mails?|emails?|messages?)\b/.test(f) && /\b(non lus?|pas lus?|nouveau|x nouveaux?)\b/.test(f);
+      const asksRead = /\b(lis|lis moi|fais la lecture|lecture)\b/.test(f) && /\b(dernier|ce|mon) (mail|email|message)\b/.test(f);
+      const asksList = /\b(lis|lis moi|consulte|quels sont|montre|affiche|liste|resume)\b/.test(f) && /\b(mails?|emails?|boite|messagerie)\b/.test(f);
+      if (!asksUnread && !asksRead && !asksList) return null;
+      if (!gmailConnected()) {
+        const t = gmailCredentials()
+          ? "Je suis presque prêt : ouvrez Paramètres → Mails et cliquez « Connecter Gmail », monsieur."
+          : "Je ne suis pas encore relié à Gmail. Déposez le fichier credentials.json dans mon dossier de données, puis connectez-moi depuis Paramètres → Mails.";
+        return say(t, { source: "mail" });
+      }
+      try {
+        if (asksUnread) {
+          const unread = await gmailUnreadCount();
+          if (!unread) return say(`Aucun mail non lu, ${c.sir}. Votre boîte est impeccable.`, { source: "mail" });
+          const latest = (await gmailList(Math.min(unread, 5), "is:unread")).slice(0, 3);
+          const detail = latest.map((m) => `${m.from} : ${m.subject}`).join(" ; ");
+          return say(
+            `${unread >= 50 ? "Plus de 50" : unread} mail${unread > 1 ? "s" : ""} non lu${unread > 1 ? "s" : ""}, ${c.sir}. Les derniers : ${detail}.`,
+            { source: "mail", cards: [{ kind: "list", title: "Mails non lus", items: latest.map((m) => `${m.subject} — ${m.from}`) }] },
+          );
+        }
+        if (asksRead) {
+          const [latest] = await gmailList(1);
+          if (!latest) return say(`Votre boîte de réception est vide, ${c.sir}.`, { source: "mail" });
+          const body = await gmailBody(latest.id);
+          const short = body.length > 900 ? `${body.slice(0, 900)}…` : body || "(mail sans texte)";
+          return say(`Mail de ${latest.from}, objet : ${latest.subject}. ${short}`, { source: "mail" });
+        }
+        const messages = await gmailList(10);
+        if (!messages.length) return say(`Aucun mail à vous présenter, ${c.sir}.`, { source: "mail" });
+        const unread = messages.filter((m) => m.unread).length;
+        const top = messages.slice(0, 3).map((m) => `${m.from} : ${m.subject}`);
+        return say(
+          `Voici vos derniers mails, ${c.sir}${unread ? ` (${unread} non lus parmi les 10 derniers)` : ""}. ${top.join(" ; ")}.`,
+          { source: "mail", cards: [{ kind: "list", title: "Derniers mails", items: messages.map((m) => `${m.unread ? "● " : ""}${m.subject} — ${m.from}${m.date ? ` (${m.date})` : ""}`) }] },
+        );
+      } catch (e) {
+        return say(`Je n'ai pas pu consulter Gmail, ${c.sir}. ${e instanceof Error ? e.message : "Erreur inconnue."}`, { source: "mail" });
+      }
     },
   },
 

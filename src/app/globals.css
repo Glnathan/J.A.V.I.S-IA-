@@ -30,6 +30,11 @@
   --hud2: #a3e635;
   --hud-rgb: 52 211 153;
 }
+:root[data-theme="gaming"] {
+  --hud: #b026ff;
+  --hud2: #ff2d78;
+  --hud-rgb: 176 38 255;
+}
 :root[data-theme="party"] .party-fx {
   animation: party-hue 2.5s linear infinite;
 }

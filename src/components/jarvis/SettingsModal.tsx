@@ -1,10 +1,11 @@
 "use client";
 
-import { Brain, Check, House, Loader2, Mic, Monitor, Puzzle, Smartphone, User, X } from "lucide-react";
+import { Brain, Check, House, Loader2, Mail, Mic, Monitor, Puzzle, Smartphone, User, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { SettingsPayload } from "@/lib/types";
 import AITab, { type TestState } from "./settings/AITab";
 import { formFromSettings, type SetField, type SettingsForm } from "./settings/form";
+import GmailTab from "./settings/GmailTab";
 import HomeTab from "./settings/HomeTab";
 import InstallTab from "./settings/InstallTab";
 import MobileTab from "./settings/MobileTab";
@@ -12,7 +13,7 @@ import PluginsTab from "./settings/PluginsTab";
 import ProfileTab from "./settings/ProfileTab";
 import VoiceTab from "./settings/VoiceTab";
 
-export type SettingsTab = "profile" | "voice" | "ai" | "home" | "plugins" | "mobile" | "install";
+export type SettingsTab = "profile" | "voice" | "ai" | "mail" | "home" | "plugins" | "mobile" | "install";
 
 interface Props {
   payload: SettingsPayload;
@@ -31,6 +32,7 @@ const TABS: { id: SettingsTab; label: string; icon: ReactNode }[] = [
   { id: "profile", label: "Profil", icon: <User size={14} /> },
   { id: "voice", label: "Voix & micro", icon: <Mic size={14} /> },
   { id: "ai", label: "Intelligence", icon: <Brain size={14} /> },
+  { id: "mail", label: "Mails", icon: <Mail size={14} /> },
   { id: "home", label: "Maison", icon: <House size={14} /> },
   { id: "plugins", label: "Plugins Python", icon: <Puzzle size={14} /> },
   { id: "mobile", label: "Mobile", icon: <Smartphone size={14} /> },
@@ -187,6 +189,7 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
               saving={saving}
             />
           )}
+          {tab === "mail" && <GmailTab />}
           {tab === "home" && (
             <HomeTab
               form={form}
