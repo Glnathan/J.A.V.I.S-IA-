@@ -284,7 +284,7 @@ export const INTENTS: Intent[] = [
   // ─── Protocoles & modes ────────────────────────────────────────────────
   {
     name: "modes",
-    run: (c) => {
+    run: async (c) => {
       const f = c.f;
       if (/((protocole|mode)\s+(fete|party|house party|disco|soiree|danse)|house party|c est la fete|lance la fete)/.test(f))
         return say(`Protocole fête activé. Que la fête commence, ${c.sir} !`, { actions: [{ type: "theme", theme: "party", duration: 30000 }, { type: "sound", name: "party" }] });
@@ -342,8 +342,36 @@ export const INTENTS: Intent[] = [
         return say(`Protocole sport activé. Musique d'échauffement lancée et dix minutes au chrono, ${c.sir}. Donnez tout !`, {
           actions: [{ type: "play_music", kind: "boot" }, { type: "timer", seconds: 600, label: "Sport" }],
         });
+      // ─── Protocoles d'activités : ouvrent plusieurs applications à la fois ───
+      if (/((protocole|mode)\s+(travail|bureau|codage|developpement)|installe moi au travail)/.test(f)) {
+        if (!(c.s.pcControl && pcControlAvailable())) return say(pcUnavailable(c));
+        const opened: string[] = [];
+        const actions: ClientAction[] = [];
+        for (const name of ["vs code", "chrome", "explorateur de fichiers"]) {
+          const app = findApp(name);
+          if (!app) continue;
+          const r = await launchApp(app);
+          if (r.ok) opened.push(app.label);
+          else if (app.web) {
+            opened.push(`${app.label} (version web)`);
+            actions.push({ type: "open", url: app.web, label: app.label });
+          }
+        }
+        return say(`Protocole travail activé, ${c.sir}. J'ouvre votre environnement : ${opened.join(", ") || "rien à ouvrir"}.`, { source: "pc", actions });
+      }
+      if (/((protocole|mode)\s+(jeu|gaming|steam))/.test(f)) {
+        if (!(c.s.pcControl && pcControlAvailable())) return say(pcUnavailable(c));
+        const app = findApp("application steam");
+        if (!app) return say(`Je n'ai pas trouvé Steam dans mes applications, ${c.sir}.`, { source: "pc" });
+        const r = await launchApp(app);
+        return r.ok
+          ? say(`Protocole jeu activé. Steam est lancé, ${c.sir}. Bonne partie !`, { source: "pc" })
+          : app.web
+            ? say(`Steam ne semble pas installé, ${c.sir} ; j'ouvre la boutique en ligne.`, { source: "pc", actions: [{ type: "open", url: app.web, label: app.label }] })
+            : say(`Je n'ai pas réussi à ouvrir Steam, ${c.sir}.`, { source: "pc" });
+      }
       const proto = X(/\bprotocole\s+([a-z0-9][a-z0-9 ]{1,30}?)\s*$/, f);
-      if (proto) return say(`Je ne connais pas le protocole « ${grab(c, proto, 1)} », ${c.sir}. Protocoles disponibles : fête, alerte, Mark, silence, nettoyage, focus, nuit et sport.`);
+      if (proto) return say(`Je ne connais pas le protocole « ${grab(c, proto, 1)} », ${c.sir}. Protocoles disponibles : fête, alerte, Mark, silence, nettoyage, focus, nuit, sport, travail et jeu.`);
       return null;
     },
   },
