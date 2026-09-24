@@ -11,6 +11,8 @@ export interface AppDef {
   label: string;
   cmd: Partial<Record<Platform, string>>;
   web?: string;
+  /** Prioritaire sur le site web du même nom (« ouvre deezer » lance l'application, pas deezer.com). */
+  preferred?: boolean;
 }
 
 export function pcControlAvailable(): boolean {
@@ -38,7 +40,7 @@ export const PC_APPS: AppDef[] = [
   { names: ["camera", "appareil photo", "webcam"], label: "l'appareil photo", cmd: { win32: 'start "" microsoft.windows.camera:', darwin: 'open -a "Photo Booth"', linux: "cheese" } },
   { names: ["capture d ecran", "outil capture", "capture"], label: "l'outil de capture", cmd: { win32: 'start "" ms-screenclip:', darwin: "open -a Screenshot" } },
   { names: ["application spotify", "appli spotify", "logiciel spotify"], label: "Spotify", cmd: { win32: 'start "" spotify:', darwin: "open -a Spotify", linux: "spotify" }, web: "https://open.spotify.com" },
-  { names: ["deezer", "application deezer", "appli deezer", "logiciel deezer"], label: "Deezer", cmd: { win32: 'start "" "shell:appsFolder\\Deezer.62021768415AF_q7m17pa7q8kj0!Deezer.Music"', darwin: 'open -a "Deezer"' }, web: "https://www.deezer.com" },
+  { names: ["deezer", "application deezer", "appli deezer", "logiciel deezer"], label: "Deezer", cmd: { win32: 'start "" "shell:appsFolder\\Deezer.62021768415AF_q7m17pa7q8kj0!Deezer.Music"', darwin: 'open -a "Deezer"' }, web: "https://www.deezer.com", preferred: true },
   { names: ["application discord", "appli discord", "logiciel discord"], label: "Discord", cmd: { win32: 'start "" discord:', darwin: "open -a Discord", linux: "discord" }, web: "https://discord.com/app" },
   { names: ["application steam", "appli steam", "logiciel steam"], label: "Steam", cmd: { win32: 'start "" steam:', darwin: "open -a Steam", linux: "steam" }, web: "https://store.steampowered.com" },
 ];

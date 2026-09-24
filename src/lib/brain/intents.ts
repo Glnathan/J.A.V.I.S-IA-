@@ -858,7 +858,7 @@ export const INTENTS: Intent[] = [
         return say(r.ok ? `J'ouvre le dossier ${folder.label}, ${c.sir}.` : `Je n'ai pas pu ouvrir le dossier ${folder.label}, ${c.sir}.`, { source: "pc" });
       }
       const app = findApp(tf) ?? (wantsApp ? findApp(`application ${tf}`) : null);
-      if (app && (wantsApp || !site)) {
+      if (app && (wantsApp || !site || app.preferred)) {
         if (pcOk) {
           const r = await launchApp(app);
           if (r.ok) return say(`J'ouvre ${app.label}, ${c.sir}.`, { source: "pc" });
