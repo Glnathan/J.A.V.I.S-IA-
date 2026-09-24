@@ -14,6 +14,8 @@ export interface DesktopProfile {
   honorific: string;
   desktopBrowser: string;
   bootMusic: string;
+  /** Colonne ai_keys (JSON) : pré-remplit la page « Clés IA » de l'installateur lors des mises à jour. */
+  aiKeys?: string;
 }
 
 export interface ProfilePatch {
@@ -62,9 +64,24 @@ export function musicModeOf(bootMusic: string): string {
 export function writeDesktopFiles(p: DesktopProfile): void {
   const dir = dataDir();
   const clean = (v: string) => v.replace(/[\r\n[\]=]/g, " ").trim();
+  // Clés IA (une par fournisseur) : l'installateur les ré-affiche lors d'une mise à jour.
+  let keyLines = "";
+  try {
+    const keys = JSON.parse(p.aiKeys || "{}") as Record<string, unknown>;
+    for (const [id, iniName] of [
+      ["gemini", "cle_gemini"],
+      ["groq", "cle_groq"],
+      ["anthropic", "cle_anthropic"],
+    ] as const) {
+      const k = typeof keys[id] === "string" ? (keys[id] as string).replace(/[\r\n[\]=;]/g, "").trim().slice(0, 500) : "";
+      if (k) keyLines += `${iniName}=${k}\r\n`;
+    }
+  } catch {
+    /* pas de clés enregistrées */
+  }
   writeUtf16(
     path.join(dir, "profil.ini"),
-    `[profil]\r\nprenom=${clean(p.userName)}\r\nappellation=${appellationOf(p)}\r\nautre=${clean(p.honorific)}\r\nmusique=${musicModeOf(p.bootMusic)}\r\n`,
+    `[profil]\r\nprenom=${clean(p.userName)}\r\nappellation=${appellationOf(p)}\r\nautre=${clean(p.honorific)}\r\nmusique=${musicModeOf(p.bootMusic)}\r\n${keyLines}`,
   );
   fs.writeFileSync(path.join(dir, "lanceur.json"), JSON.stringify({ navigateur: p.desktopBrowser || "auto", acces: readRemoteConfig().mode }, null, 2));
 }

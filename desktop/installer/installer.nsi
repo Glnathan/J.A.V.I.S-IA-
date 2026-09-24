@@ -122,6 +122,18 @@ Function .onInit
         StrCpy $MusicHadFile "1"
       ${EndIf}
     ${EndIf}
+    ReadINIStr $0 "$APPDATA\JARVIS\profil.ini" "profil" "cle_gemini"
+    ${If} $0 != ""
+      StrCpy $CleGemini $0
+    ${EndIf}
+    ReadINIStr $0 "$APPDATA\JARVIS\profil.ini" "profil" "cle_groq"
+    ${If} $0 != ""
+      StrCpy $CleGroq $0
+    ${EndIf}
+    ReadINIStr $0 "$APPDATA\JARVIS\profil.ini" "profil" "cle_anthropic"
+    ${If} $0 != ""
+      StrCpy $CleAnthropic $0
+    ${EndIf}
   ${EndIf}
 FunctionEnd
 
@@ -171,7 +183,7 @@ Function ClesPageCreate
   Pop $CleAnthropicBtn
   ${NSD_OnClick} $CleAnthropicBtn CleAnthropicClick
 
-  ${NSD_CreateLabel} 0 96u 100% 30u "Toutes les clés sont facultatives : sans clé, JARVIS fonctionne en mode local. Ollama (100 % local) et OpenAI se configurent après l'installation. Tout se modifie à tout moment dans Paramètres > Intelligence."
+  ${NSD_CreateLabel} 0 96u 100% 30u "Vos clés déjà enregistrées s'affichent pré-remplies : ne modifiez rien pour les conserver. Elles sont facultatives (sans clé, mode local) et se changent à tout moment dans Paramètres > Intelligence. Ollama et OpenAI se configurent après l'installation."
   Pop $1
   nsDialogs::Show
 FunctionEnd
