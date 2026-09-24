@@ -116,6 +116,8 @@ export interface PublicSettings {
   apiKeyPreview: string;
   /** Aperçu de la clé enregistrée par fournisseur ("" = aucune clé) — jamais la clé complète. */
   aiKeyPreviews: Record<string, string>;
+  /** Édition Premium active (clé de licence valide). */
+  premiumActive: boolean;
   pcControl: boolean;
   bootMusic: string;
   bootVolume: number;

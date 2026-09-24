@@ -29,6 +29,13 @@
                         "when":  1790210000000,
                         "tag":  "0003_cles_ia_fournisseurs",
                         "breakpoints":  true
+                    },
+                    {
+                        "idx":  4,
+                        "version":  "7",
+                        "when":  1790215000000,
+                        "tag":  "0004_premium",
+                        "breakpoints":  true
                     }
                 ]
 }

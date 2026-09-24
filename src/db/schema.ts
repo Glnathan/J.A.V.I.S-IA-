@@ -55,6 +55,8 @@ export const settings = pgTable("settings", {
   aiBaseUrl: text("ai_base_url").notNull().default(""),
   /** Une clé par fournisseur (JSON : { "groq": "…", "gemini": "…" }) — installateur et Paramètres > Intelligence. */
   aiKeys: text("ai_keys").notNull().default("{}"),
+  /** Clé de licence J.A.R.V.I.S. Premium (vide = édition Standard). */
+  premiumKey: text("premium_key").notNull().default(""),
   pcControl: boolean("pc_control").notNull().default(true),
   // "youtube" (Thunderstruck par défaut, lecteur YouTube officiel) | "custom" (fichier de l'utilisateur) | "theme" | "off"
   bootMusic: text("boot_music").notNull().default("youtube"),

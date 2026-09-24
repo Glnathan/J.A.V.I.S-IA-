@@ -1,0 +1,177 @@
+"use client";
+
+import { CheckCircle2, Crown, Download, ExternalLink, Loader2, RefreshCw, XCircle } from "lucide-react";
+import { useState } from "react";
+import type { SettingsPayload } from "@/lib/types";
+
+interface UpdateCheck {
+  current: string;
+  latest: string | null;
+  url: string | null;
+  downloadUrl: string | null;
+  notes: string | null;
+}
+
+interface Props {
+  payload: SettingsPayload;
+  onSaved: (p: SettingsPayload) => void;
+}
+
+export default function PremiumTab({ payload, onSaved }: Props) {
+  const premium = payload.settings.premiumActive;
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [check, setCheck] = useState<UpdateCheck | null>(null);
+
+  const saveKey = async () => {
+    setBusy("key");
+    setMsg(null);
+    try {
+      const r = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ premiumKey: key.trim() }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) {
+        setMsg({ ok: false, text: j.error ?? "Clé refusée." });
+        return;
+      }
+      onSaved(j as SettingsPayload);
+      setKey("");
+      setMsg({ ok: true, text: premium ? "Clé mise à jour." : "Bienvenue dans l'édition Premium !" });
+    } catch {
+      setMsg({ ok: false, text: "Le serveur ne répond pas." });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const doCheck = async () => {
+    setBusy("check");
+    setMsg(null);
+    try {
+      const r = await fetch("/api/update", { cache: "no-store" });
+      setCheck((await r.json()) as UpdateCheck);
+    } catch {
+      setMsg({ ok: false, text: "Vérification impossible (Internet ?)." });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const install = async () => {
+    setBusy("install");
+    try {
+      const r = await fetch("/api/update", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "install" }) });
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!r.ok || j.error) {
+        setMsg({ ok: false, text: j.error ?? "Installation impossible." });
+        setBusy(null);
+        return;
+      }
+      setMsg({ ok: true, text: "Mise à jour téléchargée. J.A.R.V.I.S. va redémarrer pour l'installer — l'installation est automatique." });
+      setTimeout(() => {
+        void fetch("/api/desktop/quit", { method: "POST" }).catch(() => undefined);
+      }, 1500);
+    } catch {
+      setMsg({ ok: false, text: "Le serveur ne répond pas." });
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className={`rounded border p-4 ${premium ? "border-amber-400/40 bg-amber-400/5" : "border-hud/20 bg-hud/5"}`}>
+        <div className="flex items-center gap-3">
+          {premium ? <Crown size={18} className="text-amber-300" /> : <XCircle size={15} className="text-slate-400" />}
+          <div>
+            <div className="font-display text-sm tracking-[0.2em] text-white">{premium ? "ÉDITION PREMIUM" : "ÉDITION STANDARD"}</div>
+            <p className="text-xs leading-relaxed text-slate-400">
+              {premium
+                ? "Merci de votre soutien ! Toutes les fonctions Premium sont actives sur ce J.A.R.V.I.S."
+                : "Gratuite et complète. L'édition Premium ajoute les mises à jour automatiques et les services à venir."}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded border border-hud/15 bg-black/20 p-4">
+        <div className="label">Clé Premium</div>
+        <div className="flex flex-wrap gap-2">
+          <input
+            className="hud-field font-mono uppercase"
+            placeholder={premium ? "Saisir une nouvelle clé pour la changer" : "JARVIS-XXXXX-XXXXX-XX"}
+            value={key}
+            onChange={(e) => setKey(e.target.value.toUpperCase())}
+          />
+          <button type="button" className="hud-btn shrink-0" onClick={() => void saveKey()} disabled={busy !== null || !key.trim()}>
+            {busy === "key" ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Activer
+          </button>
+        </div>
+        {premium && (
+          <button
+            type="button"
+            className="text-xs text-red-300 underline underline-offset-2"
+            onClick={() => {
+              setKey("");
+              void fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ premiumKey: "" }) })
+                .then((r) => r.json())
+                .then((p) => onSaved(p as SettingsPayload))
+                .catch(() => null);
+            }}
+          >
+            Désactiver la licence
+          </button>
+        )}
+      </div>
+
+      <div className="space-y-3 rounded border border-hud/15 bg-black/20 p-4">
+        <div className="flex items-center justify-between">
+          <div className="label">Mises à jour</div>
+          <button type="button" className="hud-btn !h-7" onClick={() => void doCheck()} disabled={busy !== null}>
+            {busy === "check" ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Rechercher
+          </button>
+        </div>
+        {check === null ? (
+          <p className="text-xs leading-relaxed text-slate-400">
+            Version installée : <span className="font-mono text-hud">{payload.desktop.version}</span>. Les versions sont publiées sur GitHub.
+          </p>
+        ) : check.latest ? (
+          <div className="space-y-2 text-sm">
+            <p>
+              Nouvelle version : <b className="text-white">{check.latest}</b> (installée : {check.current}).{" "}
+              {premium ? "Installez-la en un clic — J.A.R.V.I.S. fait le reste." : "Ouvrez la page de la release pour la télécharger, ou passez en Premium pour l'installation automatique."}
+            </p>
+            {check.url && (
+              <a href={check.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-hud underline underline-offset-2">
+                Voir la release <ExternalLink size={11} />
+              </a>
+            )}
+            {premium && (
+              <button type="button" className="hud-btn" onClick={() => void install()} disabled={busy !== null || !check.downloadUrl}>
+                {busy === "install" ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Installer automatiquement
+              </button>
+            )}
+          </div>
+        ) : (
+          <p className="flex items-center gap-2 text-sm text-emerald-200">
+            <CheckCircle2 size={14} /> J.A.R.V.I.S. est à jour ({check.current}).
+          </p>
+        )}
+      </div>
+
+      <div className="rounded border border-hud/15 bg-black/20 p-4 text-xs leading-relaxed text-slate-400">
+        <div className="label mb-2">Inclus dans Premium</div>
+        <ul className="list-disc space-y-1 pl-4">
+          <li>Mises à jour automatiques dès leur publication (installation silencieuse au démarrage)</li>
+          <li>Installation en un clic depuis cet onglet</li>
+          <li>Les services Premium à venir, inclus à vie</li>
+        </ul>
+      </div>
+
+      {msg && <p className={`text-sm ${msg.ok ? "text-emerald-200" : "text-red-300"}`}>{msg.ok ? "✅ " : "❌ "}{msg.text}</p>}
+    </div>
+  );
+}

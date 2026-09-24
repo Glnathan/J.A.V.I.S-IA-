@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, Check, House, Loader2, Mail, Mic, Monitor, Puzzle, Smartphone, User, X } from "lucide-react";
+import { Brain, Check, Crown, House, Loader2, Mail, Mic, Monitor, Puzzle, Smartphone, User, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { SettingsPayload } from "@/lib/types";
 import AITab, { type TestState } from "./settings/AITab";
@@ -10,10 +10,11 @@ import HomeTab from "./settings/HomeTab";
 import InstallTab from "./settings/InstallTab";
 import MobileTab from "./settings/MobileTab";
 import PluginsTab from "./settings/PluginsTab";
+import PremiumTab from "./settings/PremiumTab";
 import ProfileTab from "./settings/ProfileTab";
 import VoiceTab from "./settings/VoiceTab";
 
-export type SettingsTab = "profile" | "voice" | "ai" | "mail" | "home" | "plugins" | "mobile" | "install";
+export type SettingsTab = "profile" | "voice" | "ai" | "mail" | "home" | "plugins" | "premium" | "mobile" | "install";
 
 interface Props {
   payload: SettingsPayload;
@@ -35,6 +36,7 @@ const TABS: { id: SettingsTab; label: string; icon: ReactNode }[] = [
   { id: "mail", label: "Mails", icon: <Mail size={14} /> },
   { id: "home", label: "Maison", icon: <House size={14} /> },
   { id: "plugins", label: "Plugins Python", icon: <Puzzle size={14} /> },
+  { id: "premium", label: "Premium", icon: <Crown size={14} /> },
   { id: "mobile", label: "Mobile", icon: <Smartphone size={14} /> },
   { id: "install", label: "Installation", icon: <Monitor size={14} /> },
 ];
@@ -204,6 +206,7 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
             />
           )}
           {tab === "plugins" && <PluginsTab enabled={form.pluginsEnabled} onToggle={(v) => set("pluginsEnabled", v)} desktop={payload.desktop.enabled} />}
+          {tab === "premium" && <PremiumTab payload={payload} onSaved={onSaved} />}
           {tab === "mobile" && <MobileTab payload={payload} />}
           {tab === "install" && (
             <InstallTab payload={payload} canInstall={canInstall} onInstall={onInstall} pcControl={form.pcControl} onPcControl={(v) => set("pcControl", v)} onQuit={onQuit} />

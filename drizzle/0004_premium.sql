@@ -1,0 +1,1 @@
+ALTER TABLE "settings" ADD COLUMN IF NOT EXISTS "premium_key" text DEFAULT '' NOT NULL;
