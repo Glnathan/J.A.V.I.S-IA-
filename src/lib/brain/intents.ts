@@ -168,7 +168,7 @@ const HELP_ITEMS = [
   "👤 Profil — « Appelle-moi Nathan », « Appelle-moi monsieur », « Je m'appelle… »",
   "🎭 Protocoles — « Protocole fête », « Mode alerte », « Mode silencieux », « Protocole focus / nuit / sport / travail / jeu »",
   "✉️ Mails — « Lis mes mails », « Ai-je des mails non lus ? », « Lis mon dernier mail » (Gmail, Paramètres → Mails)",
-  "📅 Agenda — « Quel est mon prochain rendez-vous ? », « Qu'est-ce qui m'attend cette semaine ? » (Google Agenda)",
+  "📅 Agenda — « Quel est mon prochain rendez-vous ? », « Préviens-moi 15 minutes avant mon rendez-vous » (Google Agenda)",
   "🎙️ Écoute permanente — « Active l'écoute permanente », puis dites « Jarvis… »",
 ];
 
@@ -432,6 +432,28 @@ export const INTENTS: Intent[] = [
     name: "agenda",
     run: async (c) => {
       const f = c.f;
+
+      // « Préviens-moi 15 minutes avant mon prochain rendez-vous » → tâche avec alerte.
+      const remind = X(/\b(?:previens?|prevenez|rappelle|rappelez)\s+(?:moi|nous)\s+(?:(\d+)\s*(minutes?|min|heures?|h)\s+)?avant\b/, f);
+      if (remind && /\b(rendez vous|rdv|agenda|evenement|reunion)\b/.test(f)) {
+        if (!gmailConnected()) return say(`Je ne suis pas encore relié à votre compte Google, ${c.sir}. Connectez-moi depuis Paramètres → Mails.`, { source: "agenda" });
+        if (!hasCalendarScope()) return say(`Mon accès à l'agenda n'est pas encore autorisé, ${c.sir}. Activez-le depuis Paramètres → Mails.`, { source: "agenda" });
+        const events = await agendaList(1);
+        if (!events.length) return say(`Aucun rendez-vous à venir, ${c.sir} — rien à programmer.`, { source: "agenda" });
+        const ev = events[0];
+        const n = Number(remind[1]) || 15;
+        const isHours = /^h/.test((remind[2] ?? "").trim()) || /heures?/.test(remind[2] ?? "");
+        const offset = (isHours ? n * 3600e3 : n * 60e3);
+        const start = new Date(ev.start).getTime();
+        const due = Math.max(Date.now(), start - offset);
+        await db.insert(tasks).values({ title: capitalize(`Rendez-vous : ${ev.title}`).slice(0, 300), dueAt: new Date(due) });
+        const delay = `${n} ${isHours ? (n > 1 ? "heures" : "heure") : n > 1 ? "minutes" : "minute"}`;
+        return say(
+          `C'est noté, ${c.sir}. Je vous préviendrai ${delay} avant « ${ev.title} », ${describeDue(due, c.now, c.tz)}.`,
+          { source: "agenda", actions: [R_TASKS] },
+        );
+      }
+
       const asksAgenda = /\b(agenda|rendez vous|rdv|programme|planning|calendrier)\b/.test(f) && /\b(quel|quels|mes|mon|prochain|prochains|aujourd hui|demain|semaine|dis|donne|affiche)\b/.test(f);
       const asksAhead = /qu est ce qui m attend|quoi de prevu|mes (rendez vous|rdv|evenements)/.test(f);
       if (!asksAgenda && !asksAhead) return null;
