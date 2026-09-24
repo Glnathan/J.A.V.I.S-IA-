@@ -5,6 +5,7 @@ import {
   Download,
   Ear,
   EarOff,
+  Film,
   ExternalLink,
   History,
   ListTodo,
@@ -23,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import SpacePanel, { type SpaceVue } from "./SpacePanel";
+import MediaPanel from "./MediaPanel";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import ArcReactor, { type OrbState } from "./ArcReactor";
 import BootScreen, { type BootMusicKind } from "./BootScreen";
@@ -169,6 +171,7 @@ export default function JarvisApp() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [spaceVue, setSpaceVue] = useState<SpaceVue | null>(null);
+  const [showMedia, setShowMedia] = useState(false);
   const [mobileTab, setMobileTab] = useState<"chat" | "system" | "tasks">("chat");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [micError, setMicError] = useState<string | null>(null);
@@ -837,6 +840,9 @@ export default function JarvisApp() {
         case "espace":
           setSpaceVue(a.vue === "satellites" ? "satellites" : "systeme");
           break;
+        case "media":
+          setShowMedia(true);
+          break;
         case "play_music": {
           const setup = musicSetup(payloadRef.current);
           if (a.kind === "youtube" && a.url) {
@@ -1452,6 +1458,9 @@ export default function JarvisApp() {
                 <Orbit size={16} />
                 <span className="hidden lg:inline">Espace</span>
               </button>
+              <button type="button" className="hud-btn" title="Lecteur multimédia (vidéos et musiques)" onClick={() => setShowMedia(true)}>
+                <Film size={16} />
+              </button>
               <button type="button" className="hud-btn" data-active={!muted} title={muted ? "Activer la voix" : "Couper la voix"} onClick={() => setMute(!muted, true, true)}>
                 {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
               </button>
@@ -1618,6 +1627,8 @@ export default function JarvisApp() {
       )}
 
       {spaceVue && <SpacePanel vue={spaceVue} onClose={() => setSpaceVue(null)} />}
+
+      {showMedia && <MediaPanel onClose={() => setShowMedia(false)} />}
 
       {showOnboarding && payload && <Onboarding payload={payload} onFinish={finishOnboarding} onPreview={previewVoice} />}
 

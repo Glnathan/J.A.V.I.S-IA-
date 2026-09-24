@@ -172,6 +172,7 @@ const HELP_ITEMS = [
   "✉️ Mails — « Lis mes mails », « Ai-je des mails non lus ? », « Lis mon dernier mail » (Gmail, Paramètres → Mails)",
   "📅 Agenda — « Quel est mon prochain rendez-vous ? », « Préviens-moi 15 minutes avant mon rendez-vous » (Google Agenda)",
   "🛰️ Espace — « Où est l'ISS ? », « Où est Mars ? », « Montre le système solaire / les satellites » (page /espace)",
+  "🎬 Média — « Ouvre le lecteur multimédia » (vidéos et musiques), « Ouvre VLC » (application)",
   "🎙️ Écoute permanente — « Active l'écoute permanente », puis dites « Jarvis… »",
 ];
 
@@ -522,6 +523,17 @@ export const INTENTS: Intent[] = [
         const detail = target === "terre" ? `Nous sommes à ${pos.au.toFixed(3)} unités astronomiques du Soleil, ${c.sir}.` : `${pos.name} se trouve à ${pos.au.toFixed(2)} unités astronomiques du Soleil, soit environ ${Math.round((km ?? 0) / 1e6)} millions de kilomètres de la Terre, ${c.sir}.`;
         return say(detail, { source: "espace", actions: [{ type: "espace", vue: "systeme" }] });
       }
+      return null;
+    },
+  },
+
+  // ─── Lecteur multimédia intégré ──────────────────────────────────────
+  {
+    name: "mediaplayer",
+    run: (c) => {
+      const f = c.f;
+      if (/\b(lecteur\s+(multimedia|media|video)s?|media ?player|player)\b/.test(f) && /\b(ouvre|ouvrir|lance|lancer|affiche|montre|demarre)\b/.test(f))
+        return say(`J'ouvre le lecteur multimédia, ${c.sir}. Ouvrez vos fichiers, je m'occupe du reste.`, { actions: [{ type: "media" }] });
       return null;
     },
   },
