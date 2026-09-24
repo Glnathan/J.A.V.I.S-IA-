@@ -1,10 +1,11 @@
 "use client";
 
+import CityCameras from "@/components/jarvis/space/CityCameras";
 import { Orbit, Satellite, X } from "lucide-react";
 import { useState } from "react";
 import { SatellitesView, SolarView } from "./space/SpaceViews";
 
-export type SpaceVue = "systeme" | "satellites";
+export type SpaceVue = "systeme" | "satellites" | "cameras";
 
 interface Props {
   vue: SpaceVue;
@@ -25,14 +26,15 @@ export default function SpacePanel({ vue: initial, onClose }: Props) {
               <Orbit size={13} /> Système solaire
             </button>
             <button type="button" className="hud-btn" data-active={vue === "satellites"} onClick={() => setVue("satellites")}>
-              <Satellite size={13} /> Satellites
+              <Satellite size={13} /> Terre et satellites
             </button>
+            <button type="button" className="hud-btn" data-active={vue === "cameras"} onClick={() => setVue("cameras")}>Caméras publiques</button>
           </div>
           <button type="button" className="hud-btn ml-auto" onClick={onClose} title="Fermer">
             <X size={16} />
           </button>
         </header>
-        {vue === "systeme" ? <SolarView /> : <SatellitesView />}
+        {vue === "systeme" ? <SolarView /> : vue === "cameras" ? <CityCameras/> : <SatellitesView />}
       </div>
     </div>
   );

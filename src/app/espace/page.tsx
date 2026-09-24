@@ -1,5 +1,6 @@
 "use client";
 
+import CityCameras from "@/components/jarvis/space/CityCameras";
 import { Orbit, Satellite } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { SpaceVue } from "@/components/jarvis/SpacePanel";
@@ -12,7 +13,7 @@ export default function EspacePage() {
   useEffect(() => {
     document.title = "J.A.R.V.I.S. — Espace";
     const q = new URLSearchParams(window.location.search).get("vue");
-    if (q === "satellites" || q === "systeme") setVue(q);
+    if (q === "satellites" || q === "systeme" || q === "cameras") setVue(q);
   }, []);
 
   return (
@@ -28,8 +29,9 @@ export default function EspacePage() {
             <Orbit size={13} /> Système solaire
           </button>
           <button type="button" className="hud-btn" data-active={vue === "satellites"} onClick={() => setVue("satellites")}>
-            <Satellite size={13} /> Satellites
+            <Satellite size={13} /> Terre et satellites
           </button>
+          <button type="button" className="hud-btn" data-active={vue === "cameras"} onClick={() => setVue("cameras")}>Caméras publiques</button>
         </div>
       </header>
       <main className="relative h-[calc(100dvh-72px)] p-4">
@@ -37,7 +39,7 @@ export default function EspacePage() {
           {vue === "systeme" ? (
             <SolarView />
           ) : (
-            <SatellitesView />
+            vue === "cameras" ? <CityCameras/> : <SatellitesView />
           )}
         </div>
       </main>

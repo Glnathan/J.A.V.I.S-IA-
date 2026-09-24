@@ -5,6 +5,11 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { moonPosition, solarSystem } from "@/lib/solar";
 
+function drawSpace(ctx:CanvasRenderingContext2D,w:number,h:number){
+ ctx.fillStyle='#020611';ctx.fillRect(0,0,w,h);const glow=ctx.createRadialGradient(w*.65,h*.3,0,w*.65,h*.3,w*.7);glow.addColorStop(0,'#10213b');glow.addColorStop(1,'#020611');ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
+ for(let i=0;i<180;i++){const x=((i*73.719)%1)*w,y=((i*31.317)%1)*h;ctx.fillStyle=i%7===0?'#b9deef':'#5b6c8c';ctx.beginPath();ctx.arc(x,y,i%11===0?1.2:.55,0,Math.PI*2);ctx.fill();}
+}
+
 /* ─── Utilitaires canvas ─────────────────────────────────────────────── */
 
 function useCanvas(draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void, deps: unknown[] = []) {
@@ -17,7 +22,9 @@ function useCanvas(draw: (ctx: CanvasRenderingContext2D, w: number, h: number) =
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     let raf = 0;
-    const render = () => {
+    let lastFrame = 0;
+    const render = (stamp: number) => {
+      if(document.hidden || stamp-lastFrame<32){raf=requestAnimationFrame(render);return;}lastFrame=stamp;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
@@ -45,7 +52,7 @@ function hudColor(): [number, number, number] {
 /* ─── Vue : système solaire en temps réel ────────────────────────────── */
 
 export const SPACE_SPEEDS: { label: string; factor: number }[] = [
-  { label: "Temps réel", factor: 1 },
+  { label: "Maintenant · ×1", factor: 1 },
   { label: "1 h/s", factor: 3600 },
   { label: "1 jour/s", factor: 86400 },
 ];
@@ -64,8 +71,8 @@ export function SolarView() {
     const now = Date.now() + offset.current;
     const cx = w / 2 + pan.current.x;
     const cy = h / 2 + pan.current.y;
-    const base = Math.min(w, h) * 0.42 * zoom.current;
-    ctx.clearRect(0, 0, w, h);
+    const base = Math.min(w, h) * 0.105 * zoom.current;
+    drawSpace(ctx,w,h);
     let earthPos: { px: number; py: number } | null = null;
 
     // Soleil
@@ -96,11 +103,12 @@ export function SolarView() {
       const py = cy - (compress(p.au) * base * p.y) / dist;
       ctx.shadowColor = p.color;
       ctx.shadowBlur = 12;
-      ctx.fillStyle = p.color;
+      const sphere=ctx.createRadialGradient(px-p.size*.35,py-p.size*.4,0,px,py,p.size*1.2);sphere.addColorStop(0,'#fff0d8');sphere.addColorStop(.3,p.color);sphere.addColorStop(1,'#070b17');ctx.fillStyle=sphere;
       ctx.beginPath();
       ctx.arc(px, py, p.size, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
+      if(p.id==='saturne'){ctx.strokeStyle='#c6ab76aa';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(px,py,p.size*1.9,p.size*.65,-.4,0,Math.PI*2);ctx.stroke();}
       ctx.fillStyle = "rgba(223,247,255,0.85)";
       ctx.font = "10px ui-monospace, monospace";
       ctx.fillText(p.name, px + p.size + 5, py + 3);
@@ -129,13 +137,14 @@ export function SolarView() {
 
     ctx.fillStyle = `rgba(${r},${g},${b},0.7)`;
     ctx.font = "10px ui-monospace, monospace";
-    ctx.fillText(`Éphémérides : ${new Date(now).toLocaleString("fr-FR")} — molette : zoom, glisser : déplacer`, 14, h - 14);
+    ctx.fillText(`Calcul képlérien : ${new Date(now).toLocaleString("fr-FR")} — dimensions et distances visuelles non à l’échelle`, 14, h - 14);
   });
 
   useEffect(() => {
     // Avance le temps (vitesse choisie) : +100 ms réelles * facteur, 10 fois par seconde.
+    let last=Date.now();
     const tick = setInterval(() => {
-      offset.current += 100 * (SPACE_SPEEDS[speedIdx].factor - 1);
+      const now=Date.now(); offset.current += (now-last) * (SPACE_SPEEDS[speedIdx].factor - 1);last=now;
     }, 100);
     return () => clearInterval(tick);
   }, [speedIdx]);
@@ -161,11 +170,13 @@ export function SolarView() {
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointercancel", onUp);
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);
     return () => {
       el.removeEventListener("wheel", onWheel);
       el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointercancel", onUp);
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
     };
@@ -176,7 +187,7 @@ export function SolarView() {
       <canvas ref={ref} className="h-full w-full cursor-grab touch-none" />
       <div className="absolute right-3 top-3 flex gap-2">
         {SPACE_SPEEDS.map((s, i) => (
-          <button key={s.label} type="button" className="hud-btn !h-7 text-xs" data-active={speedIdx === i} onClick={() => setSpeedIdx(i)}>
+          <button key={s.label} type="button" className="hud-btn !h-7 text-xs" data-active={speedIdx === i} onClick={() => { offset.current=0; setSpeedIdx(i); }}>
             {s.label}
           </button>
         ))}
@@ -188,24 +199,29 @@ export function SolarView() {
 /* ─── Vue : satellites en direct (globe orthographique) ──────────────── */
 
 export const SAT_SPEEDS: { label: string; factor: number }[] = [
-  { label: "Temps réel", factor: 1 },
+  { label: "Maintenant · ×1", factor: 1 },
   { label: "×60", factor: 60 },
   { label: "×600", factor: 600 },
 ];
 
-export function SatellitesView() {
+export function SatellitesView(){return <iframe src="/earth-dashboard.html" title="Terre et satellites publics" className="min-h-0 w-full flex-1 rounded-xl border-0"/>;}
+
+export function LegacySatellitesView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [speedIdx, setSpeedIdx] = useState(0);
   const rot = useRef({ lon: 0, tilt: 0.45 });
   const drag = useRef<{ x: number; y: number } | null>(null);
   const offset = useRef(0);
-  const positions = useRef<{ name: string; group: string; lat: number; lon: number }[]>([]);
+  const positions = useRef<{ name: string; group: string; lat: number; lon: number; altKm?:number }[]>([]);
+  const land=useRef<number[][][]>([]);const zoom=useRef(1);const [details,setDetails]=useState('Chargement du catalogue…');
+  useEffect(()=>{fetch('/earth-land.json').then(r=>r.json()).then(d=>{land.current=d.features.flatMap((f:{geometry:{type:string;coordinates:number[][][]|number[][][][]}})=>f.geometry.type==='Polygon'?f.geometry.coordinates:(f.geometry.coordinates as number[][][][]).flat());}).catch(()=>{});},[]);
 
   // Temps accéléré : décale la date demandée au serveur (l'ISS bouge alors visiblement).
   useEffect(() => {
+    let last=Date.now();
     const tick = setInterval(() => {
-      offset.current += 100 * (SAT_SPEEDS[speedIdx].factor - 1);
+      const now=Date.now(); offset.current += (now-last) * (SAT_SPEEDS[speedIdx].factor - 1);last=now;
     }, 100);
     return () => clearInterval(tick);
   }, [speedIdx]);
@@ -218,17 +234,18 @@ export function SatellitesView() {
       try {
         const t = Date.now() + offset.current;
         const r = await fetch(`/api/space?action=positions&t=${t}`, { cache: "no-store" });
-        const j = (await r.json()) as { positions?: typeof positions.current; error?: string };
+        const j = (await r.json()) as { positions?: typeof positions.current; error?: string; catalogue?:{fetchedAt:string|null;stale:boolean;warning:string;oldestEpoch?:string}; at?:string };
         if (stop) return;
-        if (j.positions) {
+        if (r.ok && j.positions?.length) {
           positions.current = j.positions;
           setError(null);
+          setDetails('Positions SGP4 estimées · '+j.positions.length+' objets · calcul '+new Date(j.at||Date.now()).toLocaleTimeString('fr-FR')+' · catalogue '+(j.catalogue?.fetchedAt?new Date(j.catalogue.fetchedAt).toLocaleString('fr-FR'):'date inconnue')+(j.catalogue?.oldestEpoch?' · éléments depuis '+new Date(j.catalogue.oldestEpoch+'Z').toLocaleDateString('fr-FR'):'')+(j.catalogue?.warning?' · '+j.catalogue.warning:''));
           setLoading(false);
-        } else setError(j.error ?? "Données satellites indisponibles.");
+        } else {setLoading(false);setError(j.error ?? "Aucune donnée satellite disponible. Le globe reste consultable.");}
       } catch {
         if (!stop) setError("Le serveur ne répond pas.");
       }
-      if (!stop) timer = setTimeout(poll, 400);
+      if (!stop) timer = setTimeout(poll, 1000);
     };
     void poll();
     return () => {
@@ -241,23 +258,23 @@ export function SatellitesView() {
     const [r, g, b] = hudColor();
     const cx = w / 2;
     const cy = h / 2;
-    const R = Math.min(w, h) * 0.4;
+    const R = Math.min(w, h) * 0.32 * zoom.current;
     const { lon, tilt } = rot.current;
-    const project = (latDeg: number, lonDeg: number) => {
+    const project = (latDeg: number, lonDeg: number, radius=1) => {
       const φ = (latDeg * Math.PI) / 180;
       const λ = ((lonDeg + lon) * Math.PI) / 180;
       const x1 = Math.cos(φ) * Math.sin(λ);
       const y1 = Math.cos(tilt) * Math.sin(φ) - Math.sin(tilt) * Math.cos(φ) * Math.cos(λ);
       const z1 = Math.sin(tilt) * Math.sin(φ) + Math.cos(tilt) * Math.cos(φ) * Math.cos(λ);
-      return { x: cx + x1 * R, y: cy - y1 * R, z: z1 };
+      return { x: cx + x1 * R*radius, y: cy - y1 * R*radius, z: z1 };
     };
 
-    ctx.clearRect(0, 0, w, h);
+    drawSpace(ctx,w,h);
 
     // Globe
     const globe = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.3, 0, cx, cy, R);
-    globe.addColorStop(0, `rgba(${r},${g},${b},0.10)`);
-    globe.addColorStop(1, "rgba(0,0,0,0.25)");
+    globe.addColorStop(0, "#197598");globe.addColorStop(.55,"#0a354f");
+    globe.addColorStop(1, "#020b1b");
     ctx.fillStyle = globe;
     ctx.beginPath();
     ctx.arc(cx, cy, R, 0, Math.PI * 2);
@@ -268,6 +285,9 @@ export function SatellitesView() {
     ctx.arc(cx, cy, R, 0, Math.PI * 2);
     ctx.stroke();
 
+    const halo=ctx.createRadialGradient(cx,cy,R*.98,cx,cy,R*1.13);halo.addColorStop(0,'#46ccff55');halo.addColorStop(1,'#46ccff00');ctx.fillStyle=halo;ctx.beginPath();ctx.arc(cx,cy,R*1.13,0,Math.PI*2);ctx.arc(cx,cy,R,0,Math.PI*2,true);ctx.fill();
+    ctx.strokeStyle='#82cbb5';ctx.lineWidth=1;
+    for(const ring of land.current){ctx.beginPath();let started=false;for(const [lng,lat] of ring){const p=project(lat,lng);if(p.z<0){started=false;continue;}if(started)ctx.lineTo(p.x,p.y);else{ctx.moveTo(p.x,p.y);started=true;}}ctx.stroke();}
     // Graticule (méridiens et parallèles, face visible uniquement)
     ctx.strokeStyle = `rgba(${r},${g},${b},0.18)`;
     ctx.lineWidth = 0.7;
@@ -303,8 +323,9 @@ export function SatellitesView() {
     // Satellites — positions rafraîchies par le serveur (400 ms), dessin à 60 i/s.
     let drawn = 0;
     for (const s of positions.current) {
-      const p = project(s.lat, s.lon);
-      if (p.z < -0.05) continue;
+      const p = project(s.lat, s.lon,1+(s.altKm??0)/6371);
+      if (p.z < 0 && Math.hypot(p.x-cx,p.y-cy)<R) continue;
+      if(p.x<0||p.x>w||p.y<0||p.y>h)continue;
       drawn++;
       const isIss = /ISS/i.test(s.name);
       ctx.globalAlpha = p.z < 0 ? 0.25 : isIss ? 1 : 0.85;
@@ -326,7 +347,7 @@ export function SatellitesView() {
     ctx.fillStyle = `rgba(${r},${g},${b},0.7)`;
     ctx.font = "10px ui-monospace, monospace";
     ctx.fillText(
-      `${positions.current.length ? `${drawn} satellites visibles sur ${positions.current.length}` : "chargement des éléments orbitaux…"} — glissez pour tourner le globe`,
+      `${positions.current.length ? `${drawn} satellites visibles sur ${positions.current.length}` : "chargement des éléments orbitaux…"} — glisser : tourner · molette : zoom`,
       14,
       h - 14,
     );
@@ -336,6 +357,8 @@ export function SatellitesView() {
   useEffect(() => {
     const el = canvas.current;
     if (!el) return;
+    const onWheel=(e:WheelEvent)=>{e.preventDefault();zoom.current=Math.max(.18,Math.min(2.2,zoom.current*(e.deltaY>0?.9:1.1)));};
+    el.addEventListener("wheel",onWheel,{passive:false});
     const onDown = (e: PointerEvent) => {
       drag.current = { x: e.clientX, y: e.clientY };
       el.setPointerCapture(e.pointerId);
@@ -353,6 +376,7 @@ export function SatellitesView() {
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerup", onUp);
     return () => {
+      el.removeEventListener("wheel",onWheel);
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerup", onUp);
@@ -364,12 +388,13 @@ export function SatellitesView() {
       <canvas ref={ref} className="h-full w-full cursor-grab touch-none" />
       <div className="absolute right-3 top-3 flex gap-2">
         {SAT_SPEEDS.map((s, i) => (
-          <button key={s.label} type="button" className="hud-btn !h-7 text-xs" data-active={speedIdx === i} onClick={() => setSpeedIdx(i)}>
+          <button key={s.label} type="button" className="hud-btn !h-7 text-xs" data-active={speedIdx === i} onClick={() => { offset.current=0; setSpeedIdx(i); }}>
             {s.label}
           </button>
         ))}
       </div>
-      {error && <p className="absolute inset-x-0 top-3 mx-auto w-fit rounded border border-red-400/30 bg-red-400/10 px-3 py-1 text-xs text-red-200">⚠️ {error}</p>}
+      <p className="absolute left-3 top-12 right-3 rounded bg-black/60 px-3 py-2 text-xs text-cyan-100" role="status">{speedIdx===0?"HORLOGE ACTUELLE":"SIMULATION ACCÉLÉRÉE"} · {details}. Positions calculées, pas de vidéo en direct.</p>
+      {error && <p className="absolute inset-x-0 top-28 mx-auto w-fit rounded border border-red-400/30 bg-red-400/10 px-3 py-1 text-xs text-red-200">⚠️ {error}</p>}
       {loading && !error && (
         <p className="absolute inset-0 grid place-items-center text-sm text-slate-500">
           <Loader2 size={16} className="animate-spin" />
