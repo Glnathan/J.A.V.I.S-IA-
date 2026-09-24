@@ -118,7 +118,7 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
   return (
     <div className="fixed inset-0 z-50 grid place-items-center p-3">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="hud-panel fade-in relative z-10 flex max-h-[92dvh] w-[min(96vw,820px)] flex-col !bg-[#030b14]/95">
+      <div className="hud-panel fade-in relative z-10 flex max-h-[92dvh] w-[min(96vw,820px)] flex-col !bg-[#030b14]/95 md:w-[min(96vw,940px)]">
         <div className="flex items-center justify-between border-b border-hud/15 px-5 py-4">
           <div>
             <div className="glow-text font-display text-sm tracking-[0.3em] text-hud">PARAMÈTRES</div>
@@ -129,15 +129,25 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
           </button>
         </div>
 
-        <div className="flex gap-1 overflow-x-auto border-b border-hud/10 px-3 py-2">
-          {TABS.map((t) => (
-            <button key={t.id} type="button" onClick={() => setTab(t.id)} className="hud-btn shrink-0" data-active={tab === t.id}>
-              {t.icon} {t.label}
-            </button>
-          ))}
-        </div>
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          <nav
+            className="scroll-hud flex shrink-0 gap-1 overflow-x-auto border-b border-hud/10 px-3 py-2 md:w-48 md:flex-col md:overflow-x-hidden md:overflow-y-auto md:border-b-0 md:border-r md:border-hud/15 md:px-3 md:py-4"
+            aria-label="Sections des paramètres"
+          >
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={`hud-btn shrink-0 !justify-start md:w-full ${tab === t.id ? "shadow-[0_0_14px_rgb(var(--hud-rgb)/0.3)]" : ""}`}
+                data-active={tab === t.id}
+              >
+                {t.icon} {t.label}
+              </button>
+            ))}
+          </nav>
 
-        <div className="scroll-hud min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
+          <div className="scroll-hud min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
           {tab === "profile" && (
             <ProfileTab
               form={form}
@@ -195,6 +205,7 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
           {tab === "install" && (
             <InstallTab payload={payload} canInstall={canInstall} onInstall={onInstall} pcControl={form.pcControl} onPcControl={(v) => set("pcControl", v)} onQuit={onQuit} />
           )}
+        </div>
         </div>
 
         <div className="flex items-center justify-end gap-3 border-t border-hud/15 px-5 py-3">
