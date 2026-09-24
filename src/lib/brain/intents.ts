@@ -9,6 +9,8 @@ import { isDesktop } from "@/lib/runtime";
 import { THUNDERSTRUCK_TITLE, THUNDERSTRUCK_URL } from "@/lib/youtube";
 import { findApp, findFolder, launchApp, lockPc, openFolder, pcControlAvailable } from "./pc";
 import { gmailBody, gmailConnected, gmailCredentials, gmailList, gmailUnreadCount, agendaList, hasCalendarScope, type AgendaEvent } from "@/lib/gmail";
+import { issNow } from "@/lib/satellites";
+import { planetDistance, planetPosition } from "@/lib/solar";
 import { handleHome, looksLikeHomeCommand } from "./home-intent";
 import { haConfig } from "./home-assistant";
 import { favoritesOf, isTitle, updateSettings, type SettingsRow } from "./settings";
@@ -169,6 +171,7 @@ const HELP_ITEMS = [
   "🎭 Protocoles — « Protocole fête », « Mode alerte », « Mode silencieux », « Protocole focus / nuit / sport / travail / jeu »",
   "✉️ Mails — « Lis mes mails », « Ai-je des mails non lus ? », « Lis mon dernier mail » (Gmail, Paramètres → Mails)",
   "📅 Agenda — « Quel est mon prochain rendez-vous ? », « Préviens-moi 15 minutes avant mon rendez-vous » (Google Agenda)",
+  "🛰️ Espace — « Où est l'ISS ? », « Où est Mars ? », « Montre le système solaire / les satellites » (page /espace)",
   "🎙️ Écoute permanente — « Active l'écoute permanente », puis dites « Jarvis… »",
 ];
 
@@ -475,6 +478,44 @@ export const INTENTS: Intent[] = [
       } catch (e) {
         return say(`Je n'ai pas pu consulter votre agenda, ${c.sir}. ${e instanceof Error ? e.message : "Erreur inconnue."}`, { source: "agenda" });
       }
+    },
+  },
+
+  // ─── Espace : ISS, planètes, satellites ──────────────────────────────
+  {
+    name: "space",
+    run: async (c) => {
+      const f = c.f;
+      const R2R = (deg: number) => (deg < 0 ? "sud" : "nord");
+      const asksIss = /(ou est|ou se trouve|position|localise|coordonnees)\b/.test(f) && /(station spatiale|l iss|l iss |iss)\b/.test(f);
+      const planet = X(/\b(?:ou est|ou se trouve|position de|localise)\s+(?:la\s+|le\s+)?(mercure|venus|terre|mars|jupiter|saturne|uranus|neptune)\b/, f);
+      const asksDistance = X(/\bdistance\b.*\b(?:terre\s+)?-?\s*(mercure|venus|mars|jupiter|saturne|uranus|neptune)\b/, f);
+      const asksView = /\b(montre|affiche|ouvre|lance|afficher|ouvrir)\b/.test(f) && /\b(systeme solaire|planetes?|satellites?|l espace|la galaxie)\b/.test(f);
+      if (!asksIss && !planet && !asksDistance && !asksView) return null;
+
+      if (asksView) {
+        const vue = /satellite/.test(f) ? "satellites" : "systeme";
+        return say(`J'affiche ${vue === "satellites" ? "les satellites en direct" : "le système solaire en temps réel"}, ${c.sir}.`, {
+          actions: [{ type: "open", url: `/espace?vue=${vue}`, label: "Espace" }],
+        });
+      }
+      if (asksIss) {
+        const iss = await issNow();
+        if (!iss) return say(`Je n'ai pas pu localiser la Station spatiale, ${c.sir} — les données orbitales sont injoignables (Internet ?).`, { source: "espace" });
+        return say(
+          `La Station spatiale internationale survole actuellement ${Math.abs(iss.lat).toFixed(1)} degrés de latitude ${R2R(iss.lat)} et ${Math.abs(iss.lon).toFixed(1)} degrés de longitude ${iss.lon < 0 ? "ouest" : "est"}, à ${Math.round(iss.altKm)} kilomètres d'altitude. Elle file à ${Math.round(iss.speedKmh).toLocaleString("fr-FR")} kilomètres heure, ${c.sir}.`,
+          { source: "espace", actions: [{ type: "open", url: "/espace?vue=satellites", label: "Voir sur le globe" }] },
+        );
+      }
+      const target = (planet?.[1] ?? asksDistance?.[1]) as string;
+      if (target) {
+        const pos = planetPosition(target, Date.now());
+        if (!pos) return null;
+        const km = planetDistance("terre", target, Date.now());
+        const detail = target === "terre" ? `Nous sommes à ${pos.au.toFixed(3)} unités astronomiques du Soleil, ${c.sir}.` : `${pos.name} se trouve à ${pos.au.toFixed(2)} unités astronomiques du Soleil, soit environ ${Math.round((km ?? 0) / 1e6)} millions de kilomètres de la Terre, ${c.sir}.`;
+        return say(detail, { source: "espace", actions: [{ type: "open", url: "/espace?vue=systeme", label: "Système solaire" }] });
+      }
+      return null;
     },
   },
 
