@@ -29,6 +29,21 @@ export function aiKeysOf(s: Pick<SettingsRow, "aiKeys">): Partial<Record<Provide
   }
 }
 
+/** Empreinte vocale (JSON en base) : { descriptors } ou null si absent/corrompu. */
+export function parseVoicePrint(raw: string): { descriptors: number[][] } | null {
+  try {
+    const v = JSON.parse(raw) as { descriptors?: unknown };
+    if (!Array.isArray(v.descriptors)) return null;
+    const descriptors = v.descriptors.filter(
+      (d): d is number[] => Array.isArray(d) && d.length >= 64 && d.every((n) => typeof n === "number"),
+    );
+    if (!descriptors.length) return null;
+    return { descriptors: descriptors.slice(0, 5) };
+  } catch {
+    return null;
+  }
+}
+
 /** Visage inscrit (JSON en base) : { name, descriptors } ou null si absent/corrompu. */
 export function parseVisionFace(raw: string): { name: string; descriptors: number[][] } | null {
   try {
@@ -146,6 +161,8 @@ export function toPublicSettings(s: SettingsRow): PublicSettings {
     autoSpeak: s.autoSpeak,
     wakeWord: s.wakeWord,
     visionGate: s.visionGate,
+    voicePrint: parseVoicePrint(s.voicePrint),
+    voiceGate: s.voiceGate,
     aiProvider: s.aiProvider,
     aiModel: s.aiModel,
     aiBaseUrl: s.aiBaseUrl,

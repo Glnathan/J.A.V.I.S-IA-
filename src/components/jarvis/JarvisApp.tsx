@@ -53,6 +53,7 @@ import {
 import { transcribe, VoiceCapture } from "@/lib/client/voice-capture";
 import { duckActiveMusic, startBootMusic, stopActiveMusic, type MusicOptions } from "@/lib/client/boot-theme";
 import { recognizeFrame } from "@/lib/client/vision-face";
+import { verifyWav } from "@/lib/client/voice-print";
 import { sfx } from "@/lib/client/sounds";
 import { getVoices, pickVoice, Speaker } from "@/lib/client/speech";
 import { parseYouTubeId, youTubeLabel } from "@/lib/youtube";
@@ -407,6 +408,7 @@ export default function JarvisApp() {
   // visage inscrit est devant la caméra — la télé ne commande plus JARVIS.
   const faceSeenAtRef = useRef(0);
   const faceGateNoticeRef = useRef(0);
+  const voiceGateNoticeRef = useRef(0);
   const visionGateActive = () =>
     Boolean(payloadRef.current?.settings.visionGate && payloadRef.current?.settings.visionFace && wakeRef.current);
   const faceGateOk = () => !visionGateActive() || Date.now() - faceSeenAtRef.current < 10000;
@@ -524,9 +526,15 @@ export default function JarvisApp() {
     return { iframe: inIframe(), brave: b.brave, edge: b.edge, whisper: Boolean(payloadRef.current?.stt.available) };
   };
 
+  /** Verrou vocal (Premium) : la voix de chaque phrase est vérifiée en écoute permanente. */
+  const voiceGateActive = () =>
+    Boolean(payloadRef.current?.settings.voiceGate && payloadRef.current?.settings.voicePrint && payloadRef.current?.settings.premiumActive);
+
   /** "browser" = Web Speech API (Chrome/Edge) ; "whisper" = server-side transcription (all browsers). */
-  const currentEngine = (): "browser" | "whisper" => {
+  const currentEngine = (mode: "ptt" | "wake" = "ptt"): "browser" | "whisper" => {
     const p = payloadRef.current;
+    // Verrou vocal : il faut l'audio des phrases, seul Whisper le fournit.
+    if (mode === "wake" && voiceGateActive() && p?.stt.available) return "whisper";
     const pref = p?.settings.sttEngine ?? "auto";
     const whisperOk = Boolean(p?.stt.available);
     if (pref === "whisper") return whisperOk ? "whisper" : "browser";
@@ -554,6 +562,18 @@ export default function JarvisApp() {
       setStatus("thinking");
     }
     try {
+      // Verrou vocal : avant toute transcription en veille, la voix doit être la vôtre.
+      if (mode === "wake" && voiceGateActive()) {
+        const mine = await verifyWav(wav, payloadRef.current?.settings.voicePrint ?? null);
+        const now = Date.now();
+        if (mine === false) {
+          if (now - voiceGateNoticeRef.current > 60000) {
+            voiceGateNoticeRef.current = now;
+            pushNotice("Voix non reconnue — ignorée. (Verrou vocal actif : Paramètres → Voix & micro)");
+          }
+          return;
+        }
+      }
       const { text, suspect } = await transcribe(wav);
       if (mode === "ptt") {
         setInterim("");
@@ -636,7 +656,7 @@ export default function JarvisApp() {
 
   const startRecognition = (mode: "ptt" | "wake"): boolean => {
     if (micDiagnosticRef.current) return false;
-    if (currentEngine() === "whisper") {
+    if (currentEngine(mode) === "whisper") {
       void startWhisper(mode);
       return true;
     }

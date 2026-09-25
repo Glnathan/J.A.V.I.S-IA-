@@ -61,6 +61,10 @@ export const settings = pgTable("settings", {
   visionFace: text("vision_face").notNull().default(""),
   /** Veille faciale (Premium) : l'écoute permanente ne s'active que si le visage inscrit est visible. */
   visionGate: boolean("vision_gate").notNull().default(false),
+  /** Empreinte vocale (Premium) : JSON { descriptors }. */
+  voicePrint: text("voice_print").notNull().default(""),
+  /** Verrou vocal (Premium) : la voix non inscrite est ignorée en écoute permanente. */
+  voiceGate: boolean("voice_gate").notNull().default(false),
   pcControl: boolean("pc_control").notNull().default(true),
   // "youtube" (Thunderstruck par défaut, lecteur YouTube officiel) | "custom" (fichier de l'utilisateur) | "theme" | "off"
   bootMusic: text("boot_music").notNull().default("youtube"),

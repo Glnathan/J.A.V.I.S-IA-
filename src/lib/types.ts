@@ -123,6 +123,10 @@ export interface PublicSettings {
   visionFace: { name: string; descriptors: number[][] } | null;
   /** Veille faciale : le mot d'activation ne compte que si le visage inscrit est devant la caméra. */
   visionGate: boolean;
+  /** Empreinte vocale inscrite (édition Premium), null si aucune. */
+  voicePrint: { descriptors: number[][] } | null;
+  /** Verrou vocal : en écoute permanente, seule la voix inscrite est obéie. */
+  voiceGate: boolean;
   pcControl: boolean;
   bootMusic: string;
   bootVolume: number;

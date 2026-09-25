@@ -62,6 +62,11 @@ PostgreSQL / PGlite · plugins Python (pont JSON sur stdin/stdout) · NSIS pour 
   `scripts/generer-cle.mjs` (registre local `cles-vendues.csv`, ignoré par Git). Prix affiché : `PREMIUM_PRICE`
   dans `src/lib/premium.ts` (une seule constante pour l'onglet Premium et la page `/telecharger`). À l'activation
   d'une clé, `JarvisApp.tsx` (`onSettingsSaved`) prononce le message d'accueil Premium et flashe le thème or.
+- Empreinte vocale (Premium) : `src/lib/client/voice-print.ts` — vérification du locuteur (WavLM X-Vector via
+  transformers.js, modèle chargé depuis Hugging Face au premier emploi puis mis en cache navigateur). Inscription
+  dans l'onglet Voix & micro (3 prises, stockées dans `settings.voice_print`), verrou `voice_gate` : en écoute
+  permanente, le moteur passe en Whisper (lui seul fournit l'audio) et chaque phrase est comparée à la voix
+  inscrite — la télévision ou un tiers est ignoré. Migration `drizzle/0007`.
 - Mode Vision (Premium) : `src/components/jarvis/VisionPanel.tsx` — caméra + détection de mouvement par différence
   d'images (TypeScript pur) + reconnaissance faciale via `src/lib/client/vision-face.ts` (face-api/TFJS WASM,
   modèles dans `public/models/`, inscrits en base dans `settings.vision_face`, migration `drizzle/0005`). Intention

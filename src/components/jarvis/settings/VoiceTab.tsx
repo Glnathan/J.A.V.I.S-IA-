@@ -1,8 +1,10 @@
 "use client";
 
-import { ExternalLink, KeyRound, Mic, Trash2 } from "lucide-react";
-import { useMemo } from "react";
+import { ExternalLink, KeyRound, Loader2, Mic, Trash2, UserCheck } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { SettingsPayload } from "@/lib/types";
+import { VoiceCapture } from "@/lib/client/voice-capture";
+import { embedWav } from "@/lib/client/voice-print";
 import MicDiagnostic from "../MicDiagnostic";
 import BootMusicSection from "./BootMusicSection";
 import type { SetField, SettingsForm } from "./form";
@@ -33,6 +35,80 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
   const frVoices = useMemo(() => voices.filter((v) => v.lang?.toLowerCase().startsWith("fr")), [voices]);
   const otherVoices = useMemo(() => voices.filter((v) => !v.lang?.toLowerCase().startsWith("fr")), [voices]);
   const sameProvider = form.sttProvider === s.sttProvider;
+
+  // ─── Empreinte vocale (Premium) ─────────────────────────────────────────
+  const [voiceEnrolled, setVoiceEnrolled] = useState(Boolean(s.voicePrint));
+  const [voiceTake, setVoiceTake] = useState<number | null>(null); // 1-3 pendant l'inscription
+  const [voiceMsg, setVoiceMsg] = useState<string | null>(null);
+
+  const captureOne = (): Promise<Blob | null> =>
+    new Promise((resolve) => {
+      let done = false;
+      const cap = new VoiceCapture({
+        silenceMs: 1200,
+        maxMs: 8000,
+        minSpeechMs: 300,
+        onLevel: () => undefined,
+        onSpeechStart: () => undefined,
+        onSegment: (wav) => {
+          if (!done) {
+            done = true;
+            resolve(wav);
+          }
+        },
+      });
+      void cap.start("single").catch(() => {
+        if (!done) {
+          done = true;
+          resolve(null);
+        }
+      });
+      // Sécurité : abandon après 10 s sans parole.
+      setTimeout(() => {
+        if (!done) {
+          done = true;
+          cap.stop();
+          resolve(null);
+        }
+      }, 10000);
+    });
+
+  const enrollVoice = async () => {
+    setVoiceMsg(null);
+    const descriptors: number[][] = [];
+    for (let i = 1; i <= 3; i++) {
+      setVoiceTake(i);
+      const wav = await captureOne();
+      if (!wav) {
+        setVoiceTake(null);
+        setVoiceMsg("Micro indisponible ou silence — inscription interrompue, réessayez.");
+        return;
+      }
+      const e = await embedWav(wav);
+      if (!e) {
+        setVoiceTake(null);
+        setVoiceMsg("Modèle de reconnaissance vocale introuvable — vérifiez votre connexion Internet puis réessayez.");
+        return;
+      }
+      descriptors.push(e);
+    }
+    setVoiceTake(null);
+    try {
+      const r = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voicePrint: JSON.stringify({ descriptors }) }),
+      });
+      if (!r.ok) {
+        setVoiceMsg("Enregistrement refusé (licence Premium requise).");
+        return;
+      }
+      setVoiceEnrolled(true);
+      setVoiceMsg("Voix inscrite. Activez « Ne m'écouter que ma voix » puis cliquez Enregistrer.");
+    } catch {
+      setVoiceMsg("Le serveur ne répond pas.");
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -130,6 +206,28 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
                 : "En écoute permanente, le mot « Jarvis » n'est obéi que si votre visage inscrit est devant la caméra — la télé ne commande plus JARVIS."
           }
         />
+        <Toggle
+          checked={form.voiceGate}
+          onChange={(v) => set("voiceGate", v)}
+          disabled={!payload.settings.premiumActive || !voiceEnrolled}
+          label="Ne m'écouter que ma voix (Premium)"
+          desc={
+            !payload.settings.premiumActive
+              ? "Réservé à l'édition Premium : JARVIS apprend votre voix et ignore la télévision ou les autres personnes."
+              : !voiceEnrolled
+                ? "Inscrivez d'abord votre voix avec le bouton ci-dessous (trois prises, quelques secondes)."
+                : "En écoute permanente, chaque phrase est comparée à votre voix : la télévision est ignorée, même quand vous êtes devant l'écran. Nécessite le moteur Whisper."
+          }
+        />
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <button type="button" className="hud-btn" onClick={() => void enrollVoice()} disabled={voiceTake !== null}>
+            {voiceTake !== null ? <Loader2 size={13} className="animate-spin" /> : <UserCheck size={13} />}
+            {voiceTake !== null ? `Prise ${voiceTake}/3 — parlez…` : voiceEnrolled ? "Inscrire à nouveau ma voix" : "Inscrire ma voix (3 prises)"}
+          </button>
+          {voiceTake !== null && <span className="text-xs text-hud">Dites une phrase naturelle, puis taisez-vous une seconde.</span>}
+          {voiceEnrolled && <Mic size={13} className="text-emerald-400" />}
+        </div>
+        {voiceMsg && <p className="text-xs text-amber-200">{voiceMsg}</p>}
         <Field label="Voix" hint="Sous Windows, Microsoft Edge propose des voix naturelles très réalistes (ex. « Henri Online (Natural) »).">
           <select className="hud-field" value={form.voiceName} onChange={(e) => set("voiceName", e.target.value)}>
             <option value="">Automatique (meilleure voix française)</option>

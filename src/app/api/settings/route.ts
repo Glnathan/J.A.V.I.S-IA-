@@ -1,6 +1,6 @@
 import { normalizeHaUrl } from "@/lib/brain/home-assistant";
 import { buildSettingsPayload } from "@/lib/brain/payload";
-import { getSettings, parseVisionFace, updateSettings, type SettingsPatch } from "@/lib/brain/settings";
+import { getSettings, parseVisionFace, parseVoicePrint, updateSettings, type SettingsPatch } from "@/lib/brain/settings";
 import { isValidPremiumKey, hasPremium, normalizePremiumKey } from "@/lib/premium";
 import { getProvider } from "@/lib/providers";
 import { canonicalYouTubeUrl, parseYouTubeId } from "@/lib/youtube";
@@ -63,6 +63,24 @@ export async function PUT(req: Request) {
     else {
       const s = await getSettings();
       if (hasPremium(s)) patch.visionGate = true;
+    }
+  }
+
+  // Empreinte vocale (Premium)
+  const voicePrint = str("voicePrint", 200000);
+  if (voicePrint !== undefined) {
+    if (voicePrint === "") patch.voicePrint = "";
+    else {
+      if (!parseVoicePrint(voicePrint)) return Response.json({ error: "Empreinte vocale invalide." }, { status: 400 });
+      patch.voicePrint = voicePrint;
+    }
+  }
+  const voiceGate = bool("voiceGate");
+  if (voiceGate !== undefined) {
+    if (!voiceGate) patch.voiceGate = false;
+    else {
+      const s = await getSettings();
+      if (hasPremium(s)) patch.voiceGate = true;
     }
   }
   const sttEngine = oneOf("sttEngine", ["auto", "browser", "whisper"] as const);
