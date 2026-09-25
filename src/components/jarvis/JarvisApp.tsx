@@ -1200,6 +1200,52 @@ export default function JarvisApp() {
     }, 1500);
   };
 
+  // ─── Mises à jour automatiques (Premium) ───────────────────────────────
+  // Vérifie 30 s après le démarrage puis toutes les 6 h ; lance l'installation
+  // silencieuse sans intervention dès qu'une nouvelle version est publiée.
+  const autoUpdateDone = useRef(false);
+  useEffect(() => {
+    if (!booted || !desktopEnabled || !payload?.settings.premiumActive) return;
+    let stopped = false;
+    const tryUpdate = async () => {
+      if (stopped || autoUpdateDone.current) return;
+      let check: { latest?: string | null; downloadUrl?: string | null } | null = null;
+      try {
+        const r = await fetch("/api/update", { cache: "no-store" });
+        check = (await r.json()) as { latest?: string | null; downloadUrl?: string | null };
+      } catch {
+        return; // pas d'Internet ou serveur injoignable : nouvel essai au prochain cycle
+      }
+      if (stopped || autoUpdateDone.current || !check?.latest || !check.downloadUrl) return;
+      autoUpdateDone.current = true;
+      pushNotice(`Nouvelle version ${check.latest} disponible — installation automatique en cours…`);
+      try {
+        const p = await fetch("/api/update", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ action: "install" }) });
+        const k = (await p.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (stopped) return;
+        if (p.ok && k.ok) {
+          const { sir } = addressOf(payloadRef.current);
+          pushNotice(`Mise à jour ${check.latest} prête. J.A.R.V.I.S. redémarre pour l'installer et revient dans un instant.`);
+          speak(`Une mise à jour est disponible, ${sir}. Je l'installe et reviens dans un instant.`);
+          setTimeout(() => void quitApp(false), 8000);
+        } else {
+          pushNotice(`Échec de la mise à jour automatique : ${k.error ?? "erreur inconnue"}. Installez-la depuis l'onglet Premium.`);
+        }
+      } catch {
+        if (!stopped) pushNotice("Échec de la mise à jour automatique. Installez-la depuis l'onglet Premium.");
+      }
+    };
+    const first = setTimeout(() => void tryUpdate(), 30000);
+    const loop = setInterval(() => void tryUpdate(), 6 * 3600 * 1000);
+    return () => {
+      stopped = true;
+      clearTimeout(first);
+      clearInterval(loop);
+    };
+    // quitApp / speak : stables pour la session ; les inclure réinitialiserait les minuteurs à chaque rendu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booted, desktopEnabled, payload?.settings.premiumActive]);
+
   // ─── Boot ──────────────────────────────────────────────────────────────
   const handleInit = () => {
     sfx.unlock();
