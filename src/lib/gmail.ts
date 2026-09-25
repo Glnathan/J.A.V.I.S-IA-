@@ -189,17 +189,28 @@ interface GmailRaw {
 }
 
 async function gmailFetch<T>(pathname: string, token: string): Promise<T> {
+  if (quotaHit()) throw new Error("quota Google en cours de récupération — nouvelle tentative dans une minute");
   const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me${pathname}`, {
     headers: { authorization: `Bearer ${token}` },
   });
-  if (r.status === 429) throw new Error("quota Google atteint (HTTP 429) — patientez environ une minute avant de réessayer");
+  if (r.status === 429) {
+    quotaUntil = Date.now() + 90_000;
+    throw new Error("quota Google atteint (HTTP 429) — patientez environ une minute avant de réessayer");
+  }
   if (!r.ok) throw new Error(`Gmail a répondu HTTP ${r.status}`);
   return (await r.json()) as T;
 }
 
 // Cache mémoire (les 50 mails = ~50 requêtes ; la limite Google est de 250 unités/minute).
+// Une seule entrée par requête (q) : tous les consommateurs partagent la même liste.
 const listCache = new Map<string, { at: number; data: GmailMessage[] }>();
-const CACHE_MS = 60_000;
+const CACHE_MS = 120_000;
+/** Backoff : après un 429, plus aucune requête Gmail pendant ce délai (on sert le cache). */
+let quotaUntil = 0;
+
+function quotaHit(): boolean {
+  return Date.now() < quotaUntil;
+}
 
 function headerOf(m: GmailRaw, name: string): string {
   return m.payload?.headers?.find((h) => h.name.toLowerCase() === name)?.value ?? "";
@@ -228,29 +239,38 @@ function toMessage(m: GmailRaw): GmailMessage {
   };
 }
 
-/** Liste les derniers messages (50 max, recherche Gmail possible : "is:unread", "from:x", …) — cache 60 s. */
+/** Liste les derniers messages (50 max, recherche Gmail possible : "is:unread", "from:x", …) — cache partagé 2 min. */
 export async function gmailList(max = 25, query = ""): Promise<GmailMessage[]> {
   const token = await gmailAccessToken();
   if (!token) throw new Error("Gmail n'est pas connecté");
-  const key = `list:${Math.min(50, Math.max(1, max))}:${query.trim()}`;
+  const key = `list:${query.trim()}`;
   const hit = listCache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
-  const params = new URLSearchParams({ maxResults: String(Math.min(50, Math.max(1, max))) });
+  const limit = Math.min(50, Math.max(1, max));
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.data.slice(0, limit);
+  const params = new URLSearchParams({ maxResults: "50" });
   if (query.trim()) params.set("q", query.trim());
-  const list = await gmailFetch<{ messages?: { id: string }[] }>(`/messages?${params}`, token);
-  const ids = (list.messages ?? []).map((m) => m.id);
-  const messages = await Promise.all(
-    ids.map(async (id) => {
-      const raw = await gmailFetch<GmailRaw>(`/messages/${id}?format=full`, token);
-      return toMessage(raw);
-    }),
-  );
-  listCache.set(key, { at: Date.now(), data: messages });
-  return messages;
+  try {
+    const list = await gmailFetch<{ messages?: { id: string }[] }>(`/messages?${params}`, token);
+    const ids = (list.messages ?? []).map((m) => m.id);
+    const messages = await Promise.all(
+      ids.map(async (id) => {
+        const raw = await gmailFetch<GmailRaw>(`/messages/${id}?format=full`, token);
+        return toMessage(raw);
+      }),
+    );
+    listCache.set(key, { at: Date.now(), data: messages });
+    return messages.slice(0, limit);
+  } catch (e) {
+    // Quota ou panne : on sert le cache périmé plutôt que rien (plus de « 0 mails » trompeur).
+    if (hit) return hit.data.slice(0, limit);
+    throw e;
+  }
 }
 
-/** Nombre de mails non lus (plafonné à l'API : « 50+ » au-delà). */
+/** Nombre de mails non lus (plafonné à l'API : « 50+ » au-delà) — dérivé du cache quand possible. */
 export async function gmailUnreadCount(): Promise<number> {
+  const cached = listCache.get("list:");
+  if (cached) return cached.data.filter((m) => m.unread).length;
   const token = await gmailAccessToken();
   if (!token) throw new Error("Gmail n'est pas connecté");
   const list = await gmailFetch<{ messages?: unknown[]; resultSizeEstimate?: number }>("/messages?maxResults=50&q=is%3Aunread", token);

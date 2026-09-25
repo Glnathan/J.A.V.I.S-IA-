@@ -3,6 +3,16 @@
 Historique complet du projet, tenu à jour à chaque version. Ce document est la
 trace de tout le travail accompli, pour s'y retrouver plus tard.
 
+## 1.25.1 — Correctif quota Gmail (HTTP 429)
+- Cause : chaque chargement de 50 mails coûte 51 requêtes Google (limite 250
+  unités/min), et l'onglet Mails + le panneau latéral utilisaient deux caches
+  séparés — chaque « Actualiser » relançait une salve complète et le quota
+  restait dépassé en boucle (0 mails affichés).
+- Correctif : cache partagé par recherche (une seule salve toutes les 2 min,
+  tous les consommateurs s'y servent), backoff 90 s après un 429 (plus
+  aucune requête vers Google pendant la récupération) et service du cache
+  périmé en cas d'erreur — les mails restent affichés au lieu de disparaître.
+- Le compteur de non lus dérive du cache quand possible (0 requête).
 ## 1.25.0 — Boîte à outils (SerpAPI, Obsidian, sécurité, Grok, ElevenLabs)
 - Recherche Google lue par l'IA : clé SerpAPI (Paramètres → Intelligence,
   100 recherches/mois gratuites). « Jarvis, cherche… » répond à voix haute
