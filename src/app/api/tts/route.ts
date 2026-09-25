@@ -50,7 +50,9 @@ export async function POST(req: Request) {
       const detail = r.status === 401 ? "clé invalide" : r.status === 402 || r.status === 429 ? "quota épuisé" : "erreur ElevenLabs";
       return Response.json({ error: `Synthèse impossible : ${detail}.` }, { status: 400 });
     }
-    return new Response(r.body, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } });
+    // Audio mis en tampon (petit mp3) : jamais de flux à moitié consommé si le client part.
+    const audio = await r.arrayBuffer();
+    return new Response(audio, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } });
   } catch {
     return Response.json({ error: "ElevenLabs injoignable (réseau)." }, { status: 502 });
   }

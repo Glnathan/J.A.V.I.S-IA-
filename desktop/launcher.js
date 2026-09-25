@@ -354,7 +354,14 @@ module.exports = { findBrowser, seedMicPermission, browserCandidates };
 
 if (require.main === module) {
   process.on("uncaughtException", (e) => {
-    showError(`J.A.R.V.I.S. a rencontré une erreur : ${e && e.message}\n\nJournal : ${LOG_FILE}`);
+    const msg = String((e && e.message) || e);
+    // Coupure de flux bénigne (client qui interrompt une musique, un téléchargement…) :
+    // ne pas tuer tout JARVIS pour ça — le serveur continue de tourner.
+    if (/Controller is already closed|The operation was aborted|AbortError|ERR_STREAM_PREMATURE_CLOSE|ECONNRESET|EPIPE|terminated/i.test(msg)) {
+      console.error("Flux interrompu (ignoré, le serveur continue) :", msg);
+      return;
+    }
+    showError(`J.A.R.V.I.S. a rencontré une erreur : ${msg}\n\nJournal : ${LOG_FILE}`);
     setTimeout(() => process.exit(1), 400);
   });
   process.on("unhandledRejection", (e) => console.error("Promesse rejetée :", e));

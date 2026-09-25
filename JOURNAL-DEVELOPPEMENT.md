@@ -3,6 +3,18 @@
 Historique complet du projet, tenu à jour à chaque version. Ce document est la
 trace de tout le travail accompli, pour s'y retrouver plus tard.
 
+## 1.25.2 — Correctif plantage complet du serveur (flux coupés)
+- Cause du « JARVIS ne répond plus / la page ne charge pas » : les routes qui
+  diffusent un fichier (musique de démarrage, téléchargement de l'installateur)
+  convertissent un flux fs en flux web ; quand le navigateur coupe au milieu
+  (rechargement, fermeture), l'adaptateur lève « Controller is already closed »
+  de façon asynchrone → exception non interceptée → le lanceur appelait
+  process.exit(1) et TOUT JARVIS mourait. C'est aussi l'explication des
+  « JARVIS redémarre tout seul » observés depuis plusieurs versions.
+- Correctif : le lanceur ignore désormais les coupures de flux bénignes
+  (Controller already closed, AbortError, ECONNRESET, EPIPE, flux prématurément
+  fermé) — il les journalise et continue de servir. /api/tts met l'audio en
+  tampon au lieu de relayer un flux distant.
 ## 1.25.1 — Correctif quota Gmail (HTTP 429)
 - Cause : chaque chargement de 50 mails coûte 51 requêtes Google (limite 250
   unités/min), et l'onglet Mails + le panneau latéral utilisaient deux caches
