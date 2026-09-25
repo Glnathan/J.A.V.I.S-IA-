@@ -108,6 +108,7 @@ export function restoreBackup(id: string): { ok: boolean; error?: string } {
       "rem Attente de l'arret de J.A.R.V.I.S. (l'interface appelle /api/desktop/quit juste apres)",
       "ping -n 16 127.0.0.1 >nul",
       'powershell.exe -NoProfile -Command "Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like \'*Programs\\JARVIS*\' } | Stop-Process -Force" >nul 2>&1',
+      'powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -in \'chrome.exe\',\'msedge.exe\' -and $_.CommandLine -like \'*--app=http://127.0.0.1:3777*\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1',
       `robocopy "${src}" "${target}" /E /NFL /NDL /NJH /NJS /NP >nul`,
       "ping -n 8 127.0.0.1 >nul",
       'start "" "%LOCALAPPDATA%\\Programs\\JARVIS\\JARVIS.exe"',

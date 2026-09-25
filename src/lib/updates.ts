@@ -81,6 +81,7 @@ export async function downloadAndInstall(url: string): Promise<{ ok: boolean; er
         "rem Attente de l'arrêt de J.A.R.V.I.S. (l'interface appelle /api/desktop/quit juste après)",
         "ping -n 16 127.0.0.1 >nul",
         'powershell.exe -NoProfile -Command "Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.Path -like \'*Programs\\JARVIS*\' } | Stop-Process -Force" >nul 2>&1',
+        'powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { $_.Name -in \'chrome.exe\',\'msedge.exe\' -and $_.CommandLine -like \'*--app=http://127.0.0.1:3777*\' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1',
         `"%APPDATA%\\JARVIS\\mise-a-jour.exe" /S`,
         "ping -n 8 127.0.0.1 >nul",
         'start "" "%LOCALAPPDATA%\\Programs\\JARVIS\\JARVIS.exe"',

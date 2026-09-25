@@ -69,6 +69,11 @@ PostgreSQL / PGlite · plugins Python (pont JSON sur stdin/stdout) · NSIS pour 
   `getDisplayMedia` → image jointe à `/api/chat` (`image` en URL de données) → `streamChat` multimodal
   (OpenAI-compat `image_url`, Anthropic `image`).
 - `desktop/` : lanceur Node et scripts NSIS · `scripts/build-desktop.mjs` : fabrication de l'installateur
+- Mise à jour manuelle du PC (installateur local) : fermer d'abord ce qui tourne — le serveur
+  (`Get-Process node | Where-Object { $_.Path -like '*Programs\JARVIS*' }`) ET les fenêtres
+  (`Get-CimInstance Win32_Process | Where-Object { $_.Name -in 'chrome.exe','msedge.exe' -and $_.CommandLine -like '*--app=http://127.0.0.1:3777*' }`),
+  sinon les fenêtres ouvertes continuent d'exécuter l'ancien code du navigateur. Puis setup `/S` et relance.
+  Les scripts générés (`maj-jarvis.cmd`, `restaurer-jarvis.cmd`) font déjà ces deux fermetures.
 - `plugins/` : plugins Python d'exemple (copiés dans `%USERPROFILE%\JARVIS\plugins` au premier lancement du PC)
 
 ## Recettes
