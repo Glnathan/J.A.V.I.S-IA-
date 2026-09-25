@@ -41,7 +41,7 @@ export const PROVIDERS: ProviderInfo[] = [
     label: "Google Gemini",
     description: "Clé gratuite via Google AI Studio.",
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-    defaultModel: "gemini-2.5-flash",
+    defaultModel: "gemini-3.8-flash",
     envKeys: ["GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY"],
     needsKey: true,
     keyUrl: "https://aistudio.google.com/apikey",
