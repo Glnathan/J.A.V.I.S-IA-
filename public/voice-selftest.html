@@ -1,34 +1,61 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head><meta charset="utf-8" /><title>Auto-test voix JARVIS</title></head>
+<head><meta charset="utf-8" /><title>Auto-test voix JARVIS (worker + micro)</title></head>
 <body>
 <pre id="log">demarrage…</pre>
 <script type="module">
 const log = (t) => { document.getElementById("log").textContent += "\n" + t; };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Étape 1 : Worker (comme l'application) qui importe le moteur depuis le CDN et charge le modèle.
+const workerSrc = `
+  try {
+    const T = await import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2");
+    T.env.allowLocalModels = false;
+    T.env.useBrowserCache = false;
+    try { T.env.backends.onnx.wasm.numThreads = 1; } catch (e) {}
+    const processor = await T.AutoProcessor.from_pretrained("Xenova/wavlm-base-sv");
+    postMessage("processeur OK");
+    const model = await T.AutoModel.from_pretrained("Xenova/wavlm-base-sv", { quantized: true });
+    postMessage("modele OK");
+    const inputs = await processor(new Float32Array(16000));
+    const { embeddings } = await model(inputs);
+    postMessage("EMBEDDING WORKER OK, dimension " + embeddings.data.length);
+  } catch (e) {
+    postMessage("ERREUR WORKER: " + (e && e.message ? e.message : String(e)));
+  }
+`;
 try {
-  log("import transformers.js…");
-  const T = await import("https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2");
-  log("import OK, version chargee");
-  T.env.allowLocalModels = false;
-  T.env.useBrowserCache = false; // le test ne doit pas masquer un probleme par le cache
-  try { T.env.backends.onnx.wasm.numThreads = 1; log("numThreads=1 OK"); } catch (e) { log("numThreads: " + e.message); }
-  log("chargement du processeur wavlm-base-sv…");
-  const processor = await T.AutoProcessor.from_pretrained("Xenova/wavlm-base-sv");
-  log("processeur OK");
-  log("chargement du modele (q8, ~100 Mo)…");
-  const model = await T.AutoModel.from_pretrained("Xenova/wavlm-base-sv", { quantized: true });
-  log("modele OK");
-  const audio = new Float32Array(16000); // 1 s de silence
-  log("extraction des caracteristiques…");
-  const inputs = await processor(audio);
-  log("caracteristiques OK");
-  const { embeddings } = await model(inputs);
-  log("EMBEDDING OK : dimension " + embeddings.data.length + " premiers=[...]");
-  log("RESULTAT: SUCCES — le modele fonctionne sur cette machine");
+  log("etape 1 : creation du Worker (module, CDN)…");
+  const blob = new Blob([workerSrc], { type: "text/javascript" });
+  const w = new Worker(URL.createObjectURL(blob), { type: "module" });
+  const wDone = new Promise((resolve) => {
+    w.onmessage = (e) => { log("worker: " + e.data); if (String(e.data).includes("EMBEDDING")) resolve("ok"); else if (String(e.data).startsWith("ERREUR")) resolve("erreur-worker"); };
+    w.onerror = (e) => { log("worker onerror: " + (e.message ?? "?")); resolve("worker-error"); };
+  });
+  let got = "timeout";
+  const race = await Promise.race([wDone, sleep(240000).then(() => "timeout")]);
+  log("etape 1 resultats : " + race);
 } catch (e) {
-  log("ERREUR: " + (e && e.message ? e.message : String(e)));
-  log("RESULTAT: ECHEC");
+  log("etape 1 : ECHEC creation worker : " + (e && e.message ? e.message : String(e)));
 }
+
+// Étape 2 : micro (comme la prise de voix) — getUserMedia + AudioWorklet.
+try {
+  log("etape 2 : ouverture du micro…");
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  log("micro OK (" + stream.getTracks().length + " piste)");
+  const ctx = new AudioContext({ sampleRate: 16000 });
+  log("AudioContext 16 kHz OK (etat reel : " + ctx.sampleRate + ")");
+  const node = ctx.createMediaStreamSource(stream);
+  log("source OK");
+  stream.getTracks().forEach((t) => t.stop());
+  await ctx.close();
+  log("etape 2 : SUCCES");
+} catch (e) {
+  log("etape 2 : ECHEC : " + (e && e.message ? e.message : String(e)));
+}
+log("RESULTAT FINAL : page toujours vivante — les etapes ci-dessus disent laquelle a echoue");
 </script>
 </body>
 </html>

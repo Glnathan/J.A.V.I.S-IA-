@@ -29,7 +29,9 @@ function ensureWorker(): Worker | null {
   if (workerBroken) return null;
   if (worker) return worker;
   try {
-    worker = new Worker(new URL("./voice-worker.ts", import.meta.url), { type: "module" });
+    // Fichier servi tel quel (public/voice-worker.js) : le compilateur d'application
+    // ne sait pas empaqueter ce worker sans le corrompre (TypeScript brut servi tel quel).
+    worker = new Worker("/voice-worker.js", { type: "module" });
     worker.onmessage = (e: MessageEvent) => {
       const r = e.data as WorkerReply;
       const p = pending.get(r.id);
@@ -95,8 +97,9 @@ async function decodeTo16k(blob: Blob): Promise<Float32Array | null> {
 export async function loadVoiceModel(): Promise<{ ok: boolean; error?: string }> {
   const w = ensureWorker();
   if (!w) return { ok: false, error: "Web Worker indisponible dans ce navigateur" };
-  // Sonde : une empreinte sur un silence court force le chargement du modèle.
-  const r = await ask(new Float32Array(1600), 120000);
+  // Sonde : une empreinte sur 1 s de silence force le chargement du modèle
+  // (moins d'une seconde ferait échouer le modèle : entrée trop courte).
+  const r = await ask(new Float32Array(16000), 180000);
   return r.ok ? { ok: true } : { ok: false, error: r.error };
 }
 
