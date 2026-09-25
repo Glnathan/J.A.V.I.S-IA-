@@ -55,6 +55,7 @@ import { duckActiveMusic, startBootMusic, stopActiveMusic, type MusicOptions } f
 import { recognizeFrame } from "@/lib/client/vision-face";
 import { verifyWav } from "@/lib/client/voice-print";
 import { sfx } from "@/lib/client/sounds";
+import type { ControlProposal } from "@/lib/types";
 import { getVoices, pickVoice, Speaker } from "@/lib/client/speech";
 import { parseYouTubeId, youTubeLabel } from "@/lib/youtube";
 import type { ClientAction, ClientContext, MemoryItem, SettingsPayload, StoredMessage, StreamEvent, TaskItem, ThemeName } from "@/lib/types";
@@ -158,6 +159,9 @@ function notify(title: string, body: string) {
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
+/** Facteur d'échelle de la dernière capture (pixels image → pixels écran). */
+let lastGrabScale = 1;
+
 /** Capture une image (JPEG ≤ 1280 px) depuis un flux vidéo (écran ou caméra). */
 async function grabFrame(stream: MediaStream): Promise<string | null> {
   const video = document.createElement("video");
@@ -171,7 +175,8 @@ async function grabFrame(stream: MediaStream): Promise<string | null> {
       else video.onloadeddata = () => resolve();
     });
     await new Promise((r) => setTimeout(r, 150));
-    const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
+    lastGrabScale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
+    const scale = lastGrabScale;
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
     canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
@@ -411,6 +416,30 @@ export default function JarvisApp() {
   const voiceGateNoticeRef = useRef(0);
   /** Visage pré-chauffé pendant la transcription (résultat réutilisé par handleWake). */
   const pendingFaceRef = useRef<Promise<boolean | null> | null>(null);
+
+  /** Action d'écran en attente de confirmation (prise de contrôle, Premium). */
+  const pendingControlRef = useRef<ControlProposal | null>(null);
+
+  const executeControl = async (proposal: ControlProposal, scale: number): Promise<void> => {
+    // Les coordonnées de l'IA sont en pixels de l'image capturée : conversion écran.
+    const action = { ...proposal };
+    if ((action.kind === "click" || action.kind === "dblclick") && typeof action.x === "number" && typeof action.y === "number") {
+      action.x = Math.round(action.x / (scale || 1));
+      action.y = Math.round(action.y / (scale || 1));
+    }
+    try {
+      const r = await fetch("/api/control", {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ action }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (r.ok && j.ok) sfx.success();
+      else pushNotice(j.error ?? "L'action a échoué.");
+    } catch {
+      pushNotice("Le serveur ne répond pas — action non exécutée.");
+    }
+  };
 
   /** Conversation libre (Premium) : sans mot d'activation jusqu'à silence ou « merci ». */
   const converseUntilRef = useRef(0);
@@ -1012,6 +1041,25 @@ export default function JarvisApp() {
             setInterim("");
           }
           break;
+        case "control-propose":
+          pendingControlRef.current = a.action;
+          pushNotice(`Proposition : ${a.description}. Dites « oui, exécute » pour valider, ou « annule ».`);
+          break;
+        case "control-confirm":
+          void (async () => {
+            const p = pendingControlRef.current;
+            pendingControlRef.current = null;
+            if (!p) {
+              pushNotice("Je n'ai rien à confirmer.");
+              return;
+            }
+            await executeControl(p, lastGrabScale);
+          })();
+          break;
+        case "control-cancel":
+          if (pendingControlRef.current) pushNotice("Action annulée.");
+          pendingControlRef.current = null;
+          break;
         case "vision":
           if (a.target === "panel") setShowVision(true);
           else if (a.target === "close") setShowVision(false);
@@ -1023,7 +1071,10 @@ export default function JarvisApp() {
                 pushNotice("Capture refusée ou impossible — autorisez le partage d'écran si demandé.");
                 return;
               }
-              void sendMessage("Voici une capture de mon écran. Décris précisément ce que tu vois, en français.", "text", img);
+              const prompt = a.instruction?.trim()
+                ? `L'utilisateur demande : « ${a.instruction} ». Voici la capture de son écran. Réponds en français ; si tu peux agir sur l'écran, propose-le avec la balise [[CLIC:x,y]] (coordonnées en pixels de CETTE image), [[TEXTE:…]] ou [[TOUCHE:…]], et demande sa confirmation.`
+                : "Voici une capture de mon écran. Décris précisément ce que tu vois, en français.";
+              void sendMessage(prompt, "text", img);
             })();
           } else if (a.target === "camera") {
             void (async () => {

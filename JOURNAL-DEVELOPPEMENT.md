@@ -3,6 +3,19 @@
 Historique complet du projet, tenu à jour à chaque version. Ce document est la
 trace de tout le travail accompli, pour s'y retrouver plus tard.
 
+## 1.23.0 — Prise de contrôle de l'écran (Premium)
+- « Jarvis, prends le contrôle » / « clique sur… » / « écris… » / « appuie sur… » :
+  capture de l'écran, l'IA à vision localise la cible et propose l'action avec
+  [[CLIC:x,y]] / [[TEXTE:…]] / [[TOUCHE:…]], l'utilisateur confirme (« oui, exécute »)
+  puis l'action part à /api/control (Premium, version PC) qui pilote PowerShell
+  natif — souris et clavier, zéro dépendance. Coordonnées converties image → écran.
+- Leçon (encore) : les heredocs Python transforment  en caractère retour-arrière —
+  toujours tester les regex extraites sur des phrases réelles avant de compiler.
+
+## 1.22.0 — Latence vocale
+- Visage vérifié en parallèle de la transcription (la voix d'abord : l'audio non
+  vérifié ne quitte jamais le PC), fin de phrase détectée plus vite (650 ms).
+
 ## 1.21.0 — Conversation libre (Premium)
 - « Jarvis, parlons » ouvre une session sans mot d'activation : chaque phrase
   vérifiée par le verrou vocal devient une commande. Fin par « merci », « c'est

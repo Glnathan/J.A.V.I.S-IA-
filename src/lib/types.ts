@@ -1,5 +1,14 @@
 // Shared types between server (API routes / brain) and client (HUD).
 
+/** Action d'écran proposée par l'IA, coordonnées en pixels de l'IMAGE capturée. */
+export interface ControlProposal {
+  kind: "click" | "dblclick" | "type" | "key";
+  x?: number;
+  y?: number;
+  text?: string;
+  combo?: string;
+}
+
 export type ThemeName = "cyan" | "red" | "gold" | "green" | "party" | "gaming" | "nanotech" | "ultron" | "stealth";
 
 export type ClientAction =
@@ -18,8 +27,11 @@ export type ClientAction =
   | { type: "sound"; name: "party" | "alert" | "success" | "theme" }
   | { type: "espace"; vue?: "systeme" | "satellites" }
   | { type: "media" }
-  | { type: "vision"; target: "panel" | "close" | "screen" | "camera" }
-  | { type: "converse"; on: boolean };
+  | { type: "vision"; target: "panel" | "close" | "screen" | "camera"; instruction?: string }
+  | { type: "converse"; on: boolean }
+  | { type: "control-propose"; action: ControlProposal; description: string }
+  | { type: "control-confirm" }
+  | { type: "control-cancel" };;
 
 export interface WeatherDay {
   date: string;

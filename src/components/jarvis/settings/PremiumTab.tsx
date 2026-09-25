@@ -282,6 +282,7 @@ export default function PremiumTab({ payload, onSaved }: Props) {
         <ul className="list-disc space-y-1 pl-4">
           <li>Mises à jour automatiques dès leur publication (installation silencieuse, sans clic)</li>
           <li>Mode Vision : caméra façon Iron Man, suivi des mouvements, reconnaissance faciale, vision de l&apos;écran par IA</li>
+          <li>Prise de contrôle de l&apos;écran : « Jarvis, clique sur… » — il voit, propose, et agit après votre confirmation</li>
           <li>Conversation libre : « Jarvis, parlons » puis parlez sans mot d&apos;activation — votre voix seule est écoutée</li>
           <li>Apparences exclusives : « mode nanotech », « mode Ultron », « mode furtif »</li>
           <li>Sauvegarde quotidienne automatique, restauration en un clic</li>

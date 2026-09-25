@@ -3,7 +3,7 @@
 import { desc } from "drizzle-orm";
 import { db } from "@/db";
 import { memories, tasks } from "@/db/schema";
-import type { BrainResult, ClientAction, ClientContext } from "@/lib/types";
+import type { BrainResult, ClientAction, ClientContext, ControlProposal } from "@/lib/types";
 import { INTENTS, say, stripParens, X, grab, type Ctx } from "./intents";
 import { handleHome } from "./home-intent";
 import { haConfig } from "./home-assistant";
@@ -130,6 +130,9 @@ export function buildSystemPrompt(c: Ctx, mems: string[], pending: { title: stri
     "",
     "Actions : tu peux déclencher des actions en ajoutant à la toute fin de ta réponse une ou plusieurs balises (elles sont masquées à l'utilisateur) :",
     "[[OUVRIR:https://adresse-complete]] ouvre un site web",
+    "[[CLIC:x,y]] propose un clic gauche à la position x,y de l'image fournie (uniquement si l'utilisateur demande d'agir sur l'écran)",
+    "[[TEXTE:texte]] propose de taper du texte au clavier (l'utilisateur doit le confirmer)",
+    "[[TOUCHE:ctrl+t]] propose une combinaison de touches (entree, tab, echap, f1…)",
     "[[RECHERCHE:requête]] lance une recherche Google",
     "[[YOUTUBE:requête]] cherche une vidéo ou une musique sur YouTube",
     "[[TACHE:intitulé|AAAA-MM-JJTHH:MM]] ajoute une tâche ou un rappel (échéance facultative, heure locale de l'utilisateur)",
@@ -154,9 +157,33 @@ export function buildSystemPrompt(c: Ctx, mems: string[], pending: { title: stri
   return lines.join("\n");
 }
 
-const TAG_RE = /\[\[\s*(OUVRIR|RECHERCHE|YOUTUBE|TACHE|MEMOIRE|MINUTEUR|MAISON)\s*:\s*([^\]]*?)\s*\]\]/gi;
+const TAG_RE = /\[\[\s*(OUVRIR|RECHERCHE|YOUTUBE|TACHE|MEMOIRE|MINUTEUR|MAISON|CLIC|TEXTE|TOUCHE)\s*:\s*([^\]]*?)\s*\]\]/gi;
 
 /** Executes the action tags produced by the LLM and returns the cleaned text + client actions. */
+/** Analyse une balise de contrôle : [[CLIC:x,y]], [[TEXTE:…]], [[TOUCHE:ctrl+t]]. */
+function parseControlTag(kind: string, arg: string): ControlProposal | null {
+  if (kind === "CLIC") {
+    const m = /^(\d{1,5})\s*,\s*(\d{1,5})$/.exec(arg.replace(/\s/g, ""));
+    if (!m) return null;
+    return { kind: "click", x: Number(m[1]), y: Number(m[2]) };
+  }
+  if (kind === "TEXTE") {
+    const t = arg.trim().slice(0, 200);
+    return t ? { kind: "type", text: t } : null;
+  }
+  if (kind === "TOUCHE") {
+    const c = arg.trim().toLowerCase().slice(0, 30);
+    return c ? { kind: "key", combo: c } : null;
+  }
+  return null;
+}
+
+function describeControl(p: ControlProposal): string {
+  if (p.kind === "click" || p.kind === "dblclick") return `clic sur (${p.x}, ${p.y})`;
+  if (p.kind === "type") return `taper « ${p.text} »`;
+  return `touches ${p.combo}`;
+}
+
 export async function applyLLMTags(full: string, c: Ctx): Promise<{ text: string; actions: ClientAction[] }> {
   const actions: ClientAction[] = [];
   let taskChanged = false;
@@ -169,6 +196,18 @@ export async function applyLLMTags(full: string, c: Ctx): Promise<{ text: string
     if (!arg) continue;
     try {
       switch (kind) {
+        case "CLIC":
+        case "TEXTE":
+        case "TOUCHE": {
+          const proposal = parseControlTag(kind, arg);
+          if (proposal)
+            actions.push({
+              type: "control-propose",
+              action: proposal,
+              description: describeControl(proposal),
+            });
+          break;
+        }
         case "OUVRIR": {
           const url = /^https?:\/\//i.test(arg) ? arg : `https://${arg}`;
           const u = new URL(url);

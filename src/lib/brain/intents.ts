@@ -214,6 +214,33 @@ const LANGS: Record<string, string> = {
 };
 
 export const INTENTS: Intent[] = [
+  // ─── Prise de contrôle de l'écran (Premium) ─────────────────────────────
+  // Placée en tête : la confirmation (« oui ») ne doit jamais filer vers l'IA.
+  {
+    name: "control",
+    run: async (c) => {
+      const f = c.f;
+      if (/^(oui|d accord|dacc|ok|ok ca marche|vas y|fais le|fait le|confirme|execute|je confirme)[. ]*$/.test(f))
+        return say(`J'exécute, ${c.sir}.`, { actions: [{ type: "control-confirm" }] });
+      if (/^(annule|annulation|non merci|non passe|laisse tomber|pas maintenant|j annule)/.test(f))
+        return say(`Très bien, j'oublie l'action, ${c.sir}.`, { actions: [{ type: "control-cancel" }] });
+      const action = /(double )?clique?\b|clic (gauche|droit)?\b.*(sur|dans)/.test(f)
+        ? /(double)/.test(f) ? "double-cliquer" : "cliquer"
+        : /\b(ecris|taper|tape)\b/.test(f) && /(texte|dans|sur|champ|case)/.test(f) ? "taper le texte"
+          : /\b(appuie|presse)\b.*(touche|bouton|sur)/.test(f) ? "appuyer sur la touche"
+            : /(prend|prends|donne).*(la main|controle)/.test(f) ? "prendre le contrôle" : null;
+      if (!action) return null;
+      if (!hasPremium(c.s)) return say(`La prise de contrôle de l'écran est réservée à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+      if (!c.hasLLM) return say(`Pour agir sur votre écran, il me faut une IA à vision connectée, ${c.sir}. Ajoutez une clé (Gemini ou OpenAI) dans Paramètres → Intelligence.`);
+      return say(
+        action === "prendre le contrôle"
+          ? `Bien, ${c.sir}, je regarde votre écran. Dites-moi ce que je dois faire — je vous demanderai confirmation avant chaque clic.`
+          : `Je regarde votre écran pour ${action}, ${c.sir}.`,
+        { actions: [{ type: "vision", target: "screen", instruction: c.text }] },
+      );
+    },
+  },
+
   // ─── Présence / politesse ───────────────────────────────────────────────
   {
     name: "presence",
