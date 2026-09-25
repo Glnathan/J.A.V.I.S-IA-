@@ -73,7 +73,9 @@ export async function POST(req: Request) {
         let pluginLabel: string | undefined;
         let local: BrainResult | null = null;
         if (image) {
-          // Une image est jointe : seule l'IA (multimodale) peut la comprendre.
+          // Une image est jointe : ni plugins ni intentions locales (sinon l'intention
+          // « décris ce que tu vois » rebondirait sur son propre message en boucle) —
+          // seule l'IA multimodale peut la comprendre.
           if (!ai) {
             local = {
               text: `Je ne peux pas analyser d'image sans IA connectée, ${ctx.sir}. Ajoutez une clé (Gemini ou OpenAI par exemple) dans Paramètres → Intelligence.`,
@@ -81,7 +83,7 @@ export async function POST(req: Request) {
             };
           }
         }
-        if (!local && settings.pluginsEnabled && ctx.text) {
+        if (!local && !image && settings.pluginsEnabled && ctx.text) {
           const out = await runPlugins(ctx.text, {
             appellation: ctx.sir,
             Appellation: ctx.Sir,
@@ -113,7 +115,7 @@ export async function POST(req: Request) {
             }
           }
         }
-        if (!local) local = ctx.text ? await runLocalBrain(ctx) : { text: `Oui, ${ctx.sir} ? Je vous écoute.`, source: "local" };
+        if (!local && !image) local = ctx.text ? await runLocalBrain(ctx) : { text: `Oui, ${ctx.sir} ? Je vous écoute.`, source: "local" };
 
         if (local) {
           send({ type: "meta", conversationId: convId, source: local.source, provider: pluginLabel });

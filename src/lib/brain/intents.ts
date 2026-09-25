@@ -294,6 +294,8 @@ export const INTENTS: Intent[] = [
     name: "vision",
     run: async (c) => {
       const f = c.f;
+      // Message de la vision elle-même (image jointe au message) : ne jamais rebondir dessus.
+      if (/^voici (une image|une capture)/.test(f)) return null;
       const describe = /(decris|decrit|analyse|que vois tu|dis moi ce que tu vois|tu vois quoi)/.test(f);
       if (/(decris|decrit|analyse|que vois tu|dis moi ce que tu vois).*ecran|ecran.*(decris|decrit|analyse|que vois tu|dis moi ce que tu vois)/.test(f)) {
         if (!hasPremium(c.s)) return say(`La vision de l'écran est réservée à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
