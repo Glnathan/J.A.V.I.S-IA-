@@ -20,6 +20,7 @@ interface Props {
   onClearSttKey: () => void;
   onTestVoice: (opts: { voiceName: string; rate: number; pitch: number }) => void;
   onBootMusicChanged: () => Promise<void>;
+  onMicNeeded: () => void;
 }
 
 const ENGINES = [
@@ -30,7 +31,7 @@ const ENGINES = [
 
 const ORIGIN: Record<string, string> = { settings: "clé dédiée", ai: "clé de l'IA", env: "clé système" };
 
-export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey, onClearSttKey, onTestVoice, onBootMusicChanged }: Props) {
+export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey, onClearSttKey, onTestVoice, onBootMusicChanged, onMicNeeded }: Props) {
   const s = payload.settings;
   const frVoices = useMemo(() => voices.filter((v) => v.lang?.toLowerCase().startsWith("fr")), [voices]);
   const otherVoices = useMemo(() => voices.filter((v) => !v.lang?.toLowerCase().startsWith("fr")), [voices]);
@@ -45,6 +46,7 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
   const captureOne = (label: string): Promise<Blob | null> =>
     new Promise((resolve) => {
       let done = false;
+      onMicNeeded(); // libérer l'écoute permanente : jamais deux micros à la fois
       setVoiceStep(label);
       const cap = new VoiceCapture({
         silenceMs: 1200,

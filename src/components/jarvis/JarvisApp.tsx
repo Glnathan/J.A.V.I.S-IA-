@@ -1946,6 +1946,7 @@ export default function JarvisApp() {
           onInstall={() => void install()}
           onClose={() => setSettingsTab(null)}
           onSaved={onSettingsSaved}
+          onMicNeeded={() => stopRecognition()}
           onTestVoice={testVoice}
           onClearData={(k) => void clearData(k)}
           onQuit={() => void quitApp(true)}

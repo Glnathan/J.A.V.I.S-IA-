@@ -28,6 +28,18 @@ export async function loadVoiceModel(): Promise<{ ok: boolean; error?: string }>
     // modèle local inexistant et échoue). Le cache navigateur prend le relais ensuite.
     lib.env.allowLocalModels = false;
     lib.env.useBrowserCache = true;
+    // Mono-thread : le multi-thread exige des en-têtes d'isolation cross-origin
+    // que le serveur local n'émet pas ; sans lui, les workers WASM peuvent faire
+    // planter la fenêtre. La vérification d'une phrase de 8 s reste instantanée.
+    try {
+      const wasm = lib.env.backends.onnx?.wasm;
+      if (wasm) {
+        wasm.numThreads = 1;
+        wasm.proxy = false;
+      }
+    } catch {
+      /* options indisponibles dans cette version : comportement par défaut */
+    }
     if (!modelPromise)
       modelPromise = (async () => {
         const processor = await lib!.AutoProcessor.from_pretrained(MODEL_ID);

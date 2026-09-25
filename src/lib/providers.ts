@@ -30,7 +30,7 @@ export const PROVIDERS: ProviderInfo[] = [
     label: "Groq",
     description: "Ultra-rapide, clé gratuite (Llama 3.3 70B).",
     baseUrl: "https://api.groq.com/openai/v1",
-    defaultModel: "llama-3.3-70b-versatile",
+    defaultModel: "openai/gpt-oss-120b",
     envKeys: ["GROQ_API_KEY"],
     needsKey: true,
     keyUrl: "https://console.groq.com/keys",
