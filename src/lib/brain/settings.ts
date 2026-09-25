@@ -163,6 +163,7 @@ export function toPublicSettings(s: SettingsRow): PublicSettings {
     visionGate: s.visionGate,
     voicePrint: parseVoicePrint(s.voicePrint),
     voiceGate: s.voiceGate,
+    wakeCustom: s.wakeCustom,
     aiProvider: s.aiProvider,
     aiModel: s.aiModel,
     aiBaseUrl: s.aiBaseUrl,

@@ -47,7 +47,8 @@ import {
   inIframe,
   micAllowedByPolicy,
   recognitionErrorMessage,
-  WAKE_RE,
+  setWakeWord,
+  wakeRe,
   type SpeechRec,
 } from "@/lib/client/recognition";
 import { transcribe, VoiceCapture } from "@/lib/client/voice-capture";
@@ -264,6 +265,7 @@ export default function JarvisApp() {
       const p = (await r.json()) as SettingsPayload;
       payloadRef.current = p;
       setPayload(p);
+      setWakeWord(p.settings.wakeCustom);
       return p;
     } catch {
       return null;
@@ -298,6 +300,7 @@ export default function JarvisApp() {
         const p = (await r.json()) as SettingsPayload;
         payloadRef.current = p;
         setPayload(p);
+        setWakeWord(p.settings.wakeCustom);
       }
     } catch {
       /* ignore */
@@ -480,7 +483,7 @@ export default function JarvisApp() {
     if (voiceGateActive() && !voiceVerified) return;
     const now = Date.now();
     const awaitingNow = now < awaitingUntilRef.current;
-    if (interimText && (awaitingNow || WAKE_RE.test(foldText(interimText)))) {
+    if (interimText && (awaitingNow || wakeRe().test(foldText(interimText)))) {
       setInterim(interimText);
       setStatus((s) => (s === "idle" ? "listening" : s));
     }
@@ -503,7 +506,7 @@ export default function JarvisApp() {
       }
       return;
     }
-    const m = WAKE_RE.exec(foldText(finalText));
+    const m = wakeRe().exec(foldText(finalText));
     if (m) {
       // Veille faciale : une brève vérification du visage au moment du mot
       // d'activation (la caméra est ouverte puis relâchée immédiatement).
@@ -1572,6 +1575,7 @@ export default function JarvisApp() {
   const finishOnboarding = (p: SettingsPayload) => {
     payloadRef.current = p;
     setPayload(p);
+    setWakeWord(p.settings.wakeCustom);
     setShowOnboarding(false);
     mutedRef.current = !p.settings.autoSpeak;
     setMuted(!p.settings.autoSpeak);
@@ -1658,6 +1662,7 @@ export default function JarvisApp() {
     const engineChanged = prevEngine !== p.settings.sttEngine || prevSttOk !== p.stt.available || protectionChanged;
     payloadRef.current = p;
     setPayload(p);
+    setWakeWord(p.settings.wakeCustom);
     if (!p.settings.voiceGate || !p.settings.voicePrint || !p.settings.premiumActive || !p.stt.available) converseUntilRef.current = 0;
     if (!wasPremium && p.settings.premiumActive) {
       // Activation de la licence : message d'accueil Premium, voix et éclair doré éphémère.

@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   touchActivity();
   const settings = await getSettings();
   const ai = resolveAI(settings);
-  const ctx = makeCtx(cleanCommand(raw), settings, body.client && typeof body.client === "object" ? body.client : {}, Boolean(ai));
+  const ctx = makeCtx(cleanCommand(raw, settings.wakeCustom), settings, body.client && typeof body.client === "object" ? body.client : {}, Boolean(ai));
 
   let conversationId = typeof body.conversationId === "number" && Number.isInteger(body.conversationId) ? body.conversationId : null;
   if (conversationId) {

@@ -214,6 +214,37 @@ const LANGS: Record<string, string> = {
 };
 
 export const INTENTS: Intent[] = [
+  // ─── Mot d'activation personnalisé (Premium) ─────────────────────────────
+  // Placée en tête : « réponds à X » ne doit jamais filer vers l'IA.
+  {
+    name: "wakeword",
+    run: async (c) => {
+      const m = /^(?:desormais |a partir de maintenant |maintenant |donc )?(?:tu )?(?:peux |pourrais |veux bien )?(?:me |nous )?(?:(?:repondre|reponds? moi|reponds?|repond moi) (?:a|au mot|au mot de|au nom de|quand je dis|quand j appelle|quand j appele)|reveilles?(?: toi)? (?:au mot|au mot de|au nom de|quand je dis|quand j appelle|quand j appele)|surnomme(?: toi)?|nouveau mot d activation|mot d activation)\s+(.+)$/.exec(c.f);
+      if (!m) return null;
+      const rest = m[1].replace(/\s+(desormais|maintenant|stp|svp|s il te plait|merci|voila|dorenavant)\s*$/, "").trim();
+      const tokens = rest.split(/\s+/);
+      let word = "";
+      for (let i = tokens.length - 1; i >= 0; i--) {
+        if (/^[a-z]{2,20}$/.test(tokens[i])) {
+          word = tokens[i];
+          break;
+        }
+      }
+      if (!word) return say(`Je n'ai pas saisi le nouveau mot, ${c.sir}. Dites par exemple « réponds à Alpha ».`);
+      if (!hasPremium(c.s)) return say(`Le mot d'activation personnalisé est réservé à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+      if (word === "jarvis" || word === "jarvi" || word === "djarvis" || word === "jarviss") {
+        await updateSettings({ wakeCustom: "" });
+        return say(`Retour à « Jarvis », ${c.sir}. C'est à ce nom que je répondrai désormais.`, { actions: [R_SETTINGS] });
+      }
+      if (word === c.s.wakeCustom) return say(`Ce mot est déjà le mien, ${c.sir}. Dites « ${word} » et j'obéis.`);
+      await updateSettings({ wakeCustom: word });
+      return say(
+        `Entendu, ${c.sir}. Désormais, dites « ${word} » et je me réveillerai. Pour revenir à « Jarvis », dites « réponds à Jarvis ».`,
+        { actions: [R_SETTINGS] },
+      );
+    },
+  },
+
   // ─── Prise de contrôle de l'écran (Premium) ─────────────────────────────
   // Placée en tête : la confirmation (« oui ») ne doit jamais filer vers l'IA.
   {

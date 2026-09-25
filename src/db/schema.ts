@@ -65,6 +65,8 @@ export const settings = pgTable("settings", {
   voicePrint: text("voice_print").notNull().default(""),
   /** Verrou vocal (Premium) : la voix non inscrite est ignorée en écoute permanente. */
   voiceGate: boolean("voice_gate").notNull().default(false),
+  /** Mot d'activation personnalisé (Premium) : vide = « Jarvis ». */
+  wakeCustom: text("wake_custom").notNull().default(""),
   pcControl: boolean("pc_control").notNull().default(true),
   // "youtube" (Thunderstruck par défaut, lecteur YouTube officiel) | "custom" (fichier de l'utilisateur) | "theme" | "off"
   bootMusic: text("boot_music").notNull().default("youtube"),

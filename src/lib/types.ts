@@ -140,6 +140,8 @@ export interface PublicSettings {
   voicePrint: { descriptors: number[][] } | null;
   /** Verrou vocal : en écoute permanente, seule la voix inscrite est obéie. */
   voiceGate: boolean;
+  /** Mot d'activation personnalisé (Premium), vide = « Jarvis ». */
+  wakeCustom: string;
   pcControl: boolean;
   bootMusic: string;
   bootVolume: number;

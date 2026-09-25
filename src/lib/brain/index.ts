@@ -16,16 +16,31 @@ export type { Ctx };
 
 const WAKE = "(?:jarvis|jarvi|djarvis|jarvisse|jarviss)";
 
+/** Mot d'activation effectif : « Jarvis » par défaut, sinon le mot personnalisé (Premium). */
+function wakeGroup(custom?: string): string {
+  const w = (custom ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z]/g, "")
+    .trim();
+  if (w.length < 2) return WAKE;
+  const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return `(?:${WAKE}|${escaped}|d${escaped}|${escaped}s?e?)`;
+}
+
 /** Removes the wake word, polite formulas and "peux-tu…" prefixes. */
-export function cleanCommand(input: string): string {
+export function cleanCommand(input: string, wakeCustom?: string): string {
   let t = input.normalize("NFC").replace(/\s+/g, " ").trim();
+  const WAKE = wakeGroup(wakeCustom);
   const strip = (re: RegExp) => {
     const f = foldForMatch(t);
     const m = re.exec(f);
     if (m && m[0].length) t = `${t.slice(0, m.index)} ${t.slice(m.index + m[0].length)}`.replace(/\s+/g, " ").trim();
   };
   strip(new RegExp(`^\\s*(?:(?:ok|okay|dis|hey|he|eh|yo|allo)\\s+)?${WAKE}\\b[\\s,]*`));
-  strip(new RegExp(`[\\s,]*\\b${WAKE}\\s*$`));
+  // En queue, le mot n'est pas retiré s'il suit « à / au / de… » (ex. « réponds à Jarvis »).
+  strip(new RegExp(`[\\s,]*\\b(?<!\\b(?:a|au|aux|de|du|de la) )${WAKE}\\s*$`));
   strip(/\s*\b(?:s il (?:te|vous) plait|stp|svp)\s*$/);
   strip(/^\s*(?:s il (?:te|vous) plait|stp|svp)\b\s*/);
   strip(

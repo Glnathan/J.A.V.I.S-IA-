@@ -284,6 +284,7 @@ export default function PremiumTab({ payload, onSaved }: Props) {
           <li>Mode Vision : caméra façon Iron Man, suivi des mouvements, reconnaissance faciale, vision de l&apos;écran par IA</li>
           <li>Prise de contrôle de l&apos;écran : « Jarvis, clique sur… » — il voit, propose, et agit après votre confirmation</li>
           <li>Conversation libre : « Jarvis, parlons » puis parlez sans mot d&apos;activation — votre voix seule est écoutée</li>
+          <li>Mot d&apos;activation personnalisé : « Jarvis, réponds à Vendredi » — appelez-moi comme vous voulez</li>
           <li>Apparences exclusives : « mode nanotech », « mode Ultron », « mode furtif »</li>
           <li>Sauvegarde quotidienne automatique, restauration en un clic</li>
           <li>Journal des connexions distantes (Paramètres → Mobile)</li>

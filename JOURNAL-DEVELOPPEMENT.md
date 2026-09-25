@@ -3,6 +3,19 @@
 Historique complet du projet, tenu à jour à chaque version. Ce document est la
 trace de tout le travail accompli, pour s'y retrouver plus tard.
 
+## 1.24.0 — Mot d'activation personnalisé (Premium)
+- « Jarvis, réponds à Vendredi » (ou « réveille-toi au mot X », « surnomme-toi X »,
+  « nouveau mot d'activation X ») : remplace « Jarvis » par le mot de votre choix,
+  2 à 20 lettres. « réponds à Jarvis » fait le retour à la normale.
+- Réglable aussi dans Paramètres → Voix & micro (champ « Mot d'activation
+  personnalisé », Premium), pris en compte immédiatement.
+- Écoute permanente : le client construit la regex du mot à la volée
+  (setWakeWord/wakeRe dans recognition.ts), variantes de transcription tolérées.
+  Le cerveau retire le mot personnalisé en tête de commande (cleanCommand) et
+  préserve « à/au/de + mot » en queue (lookbehind) pour que « réponds à Jarvis »
+  fonctionne comme reset.
+- Piège corrigé (encore !) : une regex écrite via script avait un backslash
+  corrompu (backspace 0x08). Vérifier les octets des regex écrites hors éditeur.
 ## 1.23.0 — Prise de contrôle de l'écran (Premium)
 - « Jarvis, prends le contrôle » / « clique sur… » / « écris… » / « appuie sur… » :
   capture de l'écran, l'IA à vision localise la cible et propose l'action avec

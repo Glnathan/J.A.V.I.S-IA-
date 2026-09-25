@@ -59,6 +59,38 @@ export function foldText(s: string): string {
 
 export const WAKE_RE = /\b(jarvis|jarvi|jarviss|djarvis|jarvisse|jarvys|jervis|jarves|jarwis|jarvice|jarviz|javis)\b/;
 
+/** Mot d'activation courant (par défaut « Jarvis » et ses variantes de transcription). */
+let wakeCurrent: RegExp = WAKE_RE;
+
+/**
+ * Définit le mot d'activation personnalisé (édition Premium). Le mot est protégé
+ * contre les caractères de regex et les variantes proches sont tolérées
+ * (majuscules, pluriel, e final — erreurs courantes de transcription).
+ */
+export function setWakeWord(word: string): void {
+  const w = word
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z]/g, "")
+    .trim()
+    .slice(0, 20);
+  if (w.length < 2) {
+    wakeCurrent = WAKE_RE;
+    return;
+  }
+  const escaped = w; // w ne contient déjà que des lettres a–z : aucun échappement nécessaire.
+  wakeCurrent = new RegExp(
+    "\\b(" + escaped + "|" + escaped + "s?e?|d" + escaped + "|(" + escaped + ").{0,2})\\b",
+    "i",
+  );
+}
+
+/** Regex du mot d'activation à utiliser dans l'interface. */
+export function wakeRe(): RegExp {
+  return wakeCurrent;
+}
+
 export interface BrowserInfo {
   name: string;
   brave: boolean;

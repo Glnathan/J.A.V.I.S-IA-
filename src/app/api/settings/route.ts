@@ -75,7 +75,25 @@ export async function PUT(req: Request) {
       patch.voicePrint = voicePrint;
     }
   }
-  const voiceGate = bool("voiceGate");
+  // Mot d'activation personnalisé (Premium) : lettres seulement, 2 à 20 caractères.
+    const wakeCustom = str("wakeCustom", 20);
+  if (wakeCustom !== undefined) {
+    if (wakeCustom === "") patch.wakeCustom = "";
+    else {
+      const word = wakeCustom
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .replace(/[^a-z ]/g, "")
+        .trim()
+        .slice(0, 20);
+      if (word.length < 2) return Response.json({ error: "Mot d'activation trop court (2 lettres minimum)." }, { status: 400 });
+      const s = await getSettings();
+      if (!hasPremium(s)) return Response.json({ error: "Le mot d'activation personnalisé est réservé à l'édition Premium." }, { status: 403 });
+      patch.wakeCustom = word.replace(/\s+/g, " ");
+    }
+  }
+const voiceGate = bool("voiceGate");
   if (voiceGate !== undefined) {
     if (!voiceGate) patch.voiceGate = false;
     else {

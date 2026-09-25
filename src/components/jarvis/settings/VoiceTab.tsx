@@ -284,9 +284,25 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
         <Toggle
           checked={form.wakeWord}
           onChange={(v) => set("wakeWord", v)}
-          label="Écoute permanente (mot d'activation « Jarvis »)"
-          desc="Le micro reste actif : dites « Jarvis » suivi de votre demande, comme dans le film."
+          label={`Écoute permanente (mot d'activation « ${form.wakeCustom || "Jarvis"} »)`}
+          desc="Le micro reste actif : dites le mot d'activation suivi de votre demande, comme dans le film."
         />
+        <Field
+          label="Mot d'activation personnalisé (Premium)"
+          hint={
+            !s.premiumActive
+              ? "Réservé à l'édition Premium : remplacez « Jarvis » par le mot de votre choix (ex. « Vendredi »)."
+              : `Remplacez « Jarvis » par le mot de votre choix, 2 à 20 lettres. Vide = « Jarvis ». Vous pouvez aussi me le demander à la voix : « Jarvis, réponds à Vendredi » (et « réponds à Jarvis » pour revenir).`
+          }
+        >
+          <input
+            className="hud-field"
+            value={form.wakeCustom}
+            placeholder="Ex. Vendredi (vide = Jarvis)"
+            disabled={!s.premiumActive}
+            onChange={(e) => set("wakeCustom", e.target.value.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z]/g, "").slice(0, 20))}
+          />
+        </Field>
         <Toggle
           checked={form.visionGate}
           onChange={(v) => set("visionGate", v)}

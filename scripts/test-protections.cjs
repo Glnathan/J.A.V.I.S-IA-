@@ -28,7 +28,7 @@ function harness(overrides = {}) {
     setInterim:()=>{},setStatus:()=>{},setAwaiting:()=>{},setMicError:(s)=>notices.push(s),
     pushNotice:(s)=>notices.push(s),sfx:{success:()=>{},wake:()=>{}},
     foldText:s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),
-    WAKE_RE:/\bjarvis\b/,fns:{current:{send:(s)=>sent.push(s)}},
+    WAKE_RE:/\bjarvis\b/,wakeRe:()=>/\bjarvis\b/,setWakeWord:()=>{},fns:{current:{send:(s)=>sent.push(s)}},
     visionGateActive:()=>false,verifyWav:async()=>true,transcribe:async()=>({text:'bonjour',suspect:false}),
     stopRecognition:()=>{},startWhisper:()=>{},startBrowserRecognition:()=>true,
     ...overrides,
