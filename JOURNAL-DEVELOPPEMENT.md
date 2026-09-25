@@ -1,0 +1,120 @@
+# Journal de développement — J.A.R.V.I.S.
+
+Historique complet du projet, tenu à jour à chaque version. Ce document est la
+trace de tout le travail accompli, pour s'y retrouver plus tard.
+
+## 1.21.0 — Conversation libre (Premium)
+- « Jarvis, parlons » ouvre une session sans mot d'activation : chaque phrase
+  vérifiée par le verrou vocal devient une commande. Fin par « merci », « c'est
+  tout », « fin de conversation » ou 60 s de silence.
+- Seuil vocal assoupli (0,55 → 0,45) : la vraie voix passait parfois à côté.
+
+## 1.20.9 — Caméra partagée
+- La veille faciale n'occupe plus la caméra en continu : vérification brève du
+  visage uniquement au moment du mot « Jarvis », puis libération immédiate.
+  Deezer, Discord, OBS disposent librement de la caméra.
+
+## 1.20.8 — Correctif « libère la caméra »
+- L'intention « libère ma caméra » ne se déclenchait pas : un script d'écriture
+  avait introduit un caractère retour-arrière dans la regex à la place de `\b`.
+- Leçon : ne jamais écrire de regex via des heredocs à échappement multiple ;
+  toujours tester l'intention déployée (curl avec \u00XXXX pour les accents —
+  Git Bash corrompt l'UTF-8 brut).
+
+## 1.20.7 — Verrou de réservation du micro + commandes caméra
+- Cause des plantages de l'inscription/test de voix : l'écoute permanente se
+  réarmait automatiquement (six points du code) pendant les prises — deux micros
+  à la fois. Réservé désormais pendant tout le parcours (finally de libération).
+- Nouvelles commandes : « Jarvis, libère la caméra » (coupe la veille faciale et
+  ferme la Vision), « Jarvis, réactive la veille faciale » (Premium).
+
+## 1.20.6 — Le worker de voix fonctionn
+- Le compilateur servait le worker en TypeScript brut (comme une image) :
+  remplacé par un fichier servi tel quel (public/voice-worker.js) qui charge
+  transformers.js depuis le CDN au runtime.
+- Sonde et audios complétés à 1 seconde minimum (sinon OrtRun code 6).
+- Vérifié par CDP dans une vraie fenêtre : modèle chargé, empreinte 512-d
+  calculée, page vivante.
+
+## 1.20.5 — Trois phrases guidées pour l'inscription
+- « Bonjour Jarvis, aujourd'hui tu vas apprendre à reconnaître ma voix. » /
+  « Jarvis, quelle heure est-il et quel temps fait-il dehors ? » /
+  « Jarvis, décris ce que tu vois et ouvre la vision. »
+
+## 1.20.4 — Le moteur de voix chargé depuis le CDN
+- L'empaquetage du moteur ONNX par le compilateur corrompait le WebAssembly :
+  plantage du rendu de la fenêtre au chargement. Chargement CDN au runtime.
+- Page d'auto-test : /voice-selftest.html.
+
+## 1.20.3 — Worker isolé
+- Première isolation du moteur dans un Web Worker (limitée : un crash natif
+  emporte quand même le processus — voir 1.20.4/1.20.6 pour la vraie solution).
+
+## 1.20.2 — ONNX mono-thread + Groq à jour
+- Multi-thread WebAssembly sans isolation cross-origin : instable. Mono-thread.
+- Groq : llama-3.3-70b-versatile retiré par Groq → openai/gpt-oss-120b.
+
+## 1.20.1 — Inscription vocale refaite
+- Chargement du modèle affiché (avant : silence pendant ~100 Mo de téléchargement,
+  l'interface semblait figée), retour par étape, bouton « Tester ma voix » avec
+  score de similarité en pourcentage.
+
+## 1.20.0 — Empreinte vocale (Premium)
+- Vérification du locuteur par WavLM X-Vector (Microsoft Research), 100 % locale.
+- Inscription en trois prises (Paramètres → Voix & micro), verrou vocal : en
+  écoute permanente, chaque phrase est comparée à la voix inscrite — la télévision
+  est ignorée, même devant l'écran. Moteur Whisper forcé (seul à fournir l'audio).
+
+## 1.19.0 — Veille faciale (Premium)
+- « Ne m'écouter qu'en présence de mon visage » : en écoute permanente, le mot
+  « Jarvis » n'est obéi que si le visage inscrit est devant la caméra.
+- Modèle facial local (6,8 Mo, face-api WASM), migration drizzle/0006.
+
+## 1.18.0 — Chaîne de secours multi-IA
+- Si l'IA choisie tombe (503, quota, réseau), bascule automatique sur la suivante
+  dont une clé est configurée. Née d'une surcharge Gemini réelle (503).
+
+## 1.17.x — Mode Vision (Premium)
+- 1.17.0 : panneau caméra façon Iron Man — suivi des mouvements par différence
+  d'images (TypeScript pur), reconnaissance faciale embarquée (inscription dans
+  le panneau), vision de l'écran (« décris mon écran ») via IA multimodale.
+- 1.17.1 : boucle d'animation sans re-rendu par image (fix lag/gel du panneau).
+- 1.17.2 : une image jointe va directement à l'IA — plus d'intentions locales
+  (l'intention « décris ce que tu vois » rebondissait sur son propre message).
+- 1.17.3 : modèle Gemini par défaut mis à jour (gemini-3.8-flash, le 2.5 refusé
+  en 404 par Google).
+- 1.17.4 : les scripts de mise à jour et de restauration ferment aussi les
+  fenêtres JARVIS (chrome --app 127.0.0.1:3777), pas seulement le serveur —
+  les fenêtres ouvertes exécutaient l'ancien code du navigateur.
+
+## 1.16.0 — Commercialisation
+- PREMIUM_PRICE (19,99 € à vie) : une constante, partout (onglet Premium,
+  page /telecharger). Message d'accueil parlé + éclair doré à l'activation d'une
+  clé. Comparatif des éditions sur la page de téléchargement.
+
+## 1.15.0 — Éditions Standard et Premium (vendeur)
+- Générateur de clés : generer-cle.bat → scripts/generer-cle.mjs (clé
+  JARVIS-XXXXX-XXXXX-XX, registre cles-vendues.csv ignoré par Git).
+- Sauvegardes Premium : quotidienne automatique (7 conservées), « Sauvegarder
+  maintenant », restauration par script (restaurer-jarvis.cmd).
+- Journal des connexions distantes (Premium) : /api/remote/journal.
+- Thèmes exclusifs : « mode nanotech », « mode Ultron », « mode furtif ».
+
+## 1.14.0 — HUD
+- Réacteur arc audio-actif (anneau spectral piloté par le niveau vocal réel),
+  chat machine à écrire (accéléré sur les blocs, instantané sur l'historique),
+  bandeau télémétrie défilant, écran de veille (réveil au mouvement ou à la voix).
+
+## Prochaines étapes connues
+- Prise de contrôle écran : JARVIS voit l'écran (getDisplayMedia) et agit
+  (plugin Python d'automatisation) — avec confirmation vocale avant chaque
+  action, jamais de clic sans accord.
+- Leçon à retenir : quand une mise à jour s'installe chez l'utilisateur pendant
+  qu'il teste, JARVIS « redémarre » sous lui — prévenir avant d'installer.
+
+## Infrastructure (rappel)
+- Dépôt : Glnathan/J.A.V.I.S-IA- (GitHub). Installateur : node scripts/build-desktop.mjs.
+- Installation locale de test : fermer le serveur (node sous Programs\JARVIS) ET
+  les fenêtres (chrome --app=http://127.0.0.1:3777), setup /S, relancer.
+- Vérifier les intentions déployées avec curl en échappant les accents (\u00e8…).
+- Les JARVIS Premium se mettent à jour automatiquement depuis les releases GitHub.
