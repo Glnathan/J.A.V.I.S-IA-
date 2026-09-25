@@ -57,6 +57,8 @@ export const settings = pgTable("settings", {
   aiKeys: text("ai_keys").notNull().default("{}"),
   /** Clé de licence J.A.R.V.I.S. Premium (vide = édition Standard). */
   premiumKey: text("premium_key").notNull().default(""),
+  /** Visage inscrit pour la reconnaissance (édition Premium) : JSON { name, descriptors }. */
+  visionFace: text("vision_face").notNull().default(""),
   pcControl: boolean("pc_control").notNull().default(true),
   // "youtube" (Thunderstruck par défaut, lecteur YouTube officiel) | "custom" (fichier de l'utilisateur) | "theme" | "off"
   bootMusic: text("boot_music").notNull().default("youtube"),

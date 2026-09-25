@@ -1,0 +1,1 @@
+ALTER TABLE "settings" ADD COLUMN "vision_face" text DEFAULT '' NOT NULL;

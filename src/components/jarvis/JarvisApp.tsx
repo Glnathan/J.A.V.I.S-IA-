@@ -5,6 +5,7 @@ import {
   Download,
   Ear,
   EarOff,
+  Eye,
   Film,
   ExternalLink,
   History,
@@ -25,6 +26,7 @@ import {
 } from "lucide-react";
 import SpacePanel, { type SpaceVue } from "./SpacePanel";
 import MediaPanel from "./MediaPanel";
+import VisionPanel from "./VisionPanel";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import ArcReactor, { type OrbState } from "./ArcReactor";
 import BootScreen, { type BootMusicKind } from "./BootScreen";
@@ -153,6 +155,32 @@ function notify(title: string, body: string) {
 }
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
+
+/** Capture une image (JPEG ≤ 1280 px) depuis un flux vidéo (écran ou caméra). */
+async function grabFrame(stream: MediaStream): Promise<string | null> {
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.srcObject = stream;
+  try {
+    await video.play();
+    await new Promise<void>((resolve) => {
+      if (video.readyState >= 2) resolve();
+      else video.onloadeddata = () => resolve();
+    });
+    await new Promise((r) => setTimeout(r, 150));
+    const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.8);
+  } catch {
+    return null;
+  } finally {
+    video.srcObject = null;
+  }
+}
 
 export default function JarvisApp() {
   const [booted, setBooted] = useState(false);
@@ -845,6 +873,31 @@ export default function JarvisApp() {
         case "media":
           setShowMedia(true);
           break;
+        case "vision":
+          if (a.target === "panel") setShowVision(true);
+          else if (a.target === "close") setShowVision(false);
+          else if (a.target === "screen") {
+            void (async () => {
+              pushNotice("Capture de votre écran…");
+              const img = await captureScreen();
+              if (!img) {
+                pushNotice("Capture refusée ou impossible — autorisez le partage d'écran si demandé.");
+                return;
+              }
+              void sendMessage("Voici une capture de mon écran. Décris précisément ce que tu vois, en français.", "text", img);
+            })();
+          } else if (a.target === "camera") {
+            void (async () => {
+              pushNotice("Capture de la caméra…");
+              const img = await captureCamera();
+              if (!img) {
+                pushNotice("Caméra indisponible ou refusée.");
+                return;
+              }
+              void sendMessage("Voici une image de ma caméra. Décris précisément ce que tu vois, en français.", "text", img);
+            })();
+          }
+          break;
         case "play_music": {
           const setup = musicSetup(payloadRef.current);
           if (a.kind === "youtube" && a.url) {
@@ -894,7 +947,36 @@ export default function JarvisApp() {
   };
 
   // ─── Conversation ──────────────────────────────────────────────────────
-  const sendMessage = async (raw: string, via: "voice" | "text" = "text") => {
+  // ─── Vision : captures d'écran et de caméra (édition Premium) ──────────
+  const [showVision, setShowVision] = useState(false);
+  /** Fournisseur d'image du panneau Vision ouvert (la trame courante de la caméra). */
+  const visionFrameRef = useRef<(() => string | null) | null>(null);
+
+  const captureScreen = async (): Promise<string | null> => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const img = await grabFrame(stream);
+      stream.getTracks().forEach((t) => t.stop());
+      return img;
+    } catch {
+      return null;
+    }
+  };
+
+  const captureCamera = async (): Promise<string | null> => {
+    const fromPanel = visionFrameRef.current?.();
+    if (fromPanel) return fromPanel;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      const img = await grabFrame(stream);
+      stream.getTracks().forEach((t) => t.stop());
+      return img;
+    } catch {
+      return null;
+    }
+  };
+
+  const sendMessage = async (raw: string, via: "voice" | "text" = "text", image?: string) => {
     const text = raw.trim();
     if (!text) return;
     if (/^(stop|arr[êe]te|tais[- ]toi|silence|chut|ça suffit|ca suffit)[.!\s]*$/i.test(text) && speakerRef.current?.speaking) {
@@ -943,7 +1025,7 @@ export default function JarvisApp() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: JSON_HEADERS,
-        body: JSON.stringify({ message: text, conversationId: convRef.current, client: await clientContext() }),
+        body: JSON.stringify({ message: text, conversationId: convRef.current, client: await clientContext(), image }),
         signal: ac.signal,
       });
       if (!res.ok || !res.body) {
@@ -1519,6 +1601,17 @@ export default function JarvisApp() {
                 <Orbit size={16} />
                 <span className="hidden lg:inline">Espace</span>
               </button>
+              {Boolean(payload?.settings.premiumActive) && (
+                <button
+                  type="button"
+                  className="hud-btn"
+                  title="Vision (Premium) : caméra avec suivi des mouvements et reconnaissance faciale"
+                  onClick={() => setShowVision(true)}
+                >
+                  <Eye size={16} />
+                  <span className="hidden lg:inline">Vision</span>
+                </button>
+              )}
               <button type="button" className="hud-btn" title="Lecteur multimédia (vidéos et musiques)" onClick={() => setShowMedia(true)}>
                 <Film size={16} />
               </button>
@@ -1703,6 +1796,18 @@ export default function JarvisApp() {
       )}
 
       {spaceVue && <SpacePanel vue={spaceVue} onClose={() => setSpaceVue(null)} />}
+
+      {showVision && (
+        <VisionPanel
+          onClose={() => setShowVision(false)}
+          frameRef={visionFrameRef}
+          onGreet={(text) => speak(text)}
+          onDescribe={(img) => void sendMessage("Voici une image de ma caméra. Décris précisément ce que tu vois, en français.", "text", img)}
+          premium={Boolean(payload?.settings.premiumActive)}
+          faceData={payload?.settings.visionFace ?? null}
+          userName={payload?.settings.userName ?? ""}
+        />
+      )}
 
       {showMedia && <MediaPanel onClose={() => setShowMedia(false)} />}
 

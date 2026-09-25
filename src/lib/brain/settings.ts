@@ -29,6 +29,21 @@ export function aiKeysOf(s: Pick<SettingsRow, "aiKeys">): Partial<Record<Provide
   }
 }
 
+/** Visage inscrit (JSON en base) : { name, descriptors } ou null si absent/corrompu. */
+export function parseVisionFace(raw: string): { name: string; descriptors: number[][] } | null {
+  try {
+    const v = JSON.parse(raw) as { name?: unknown; descriptors?: unknown };
+    if (typeof v.name !== "string" || !Array.isArray(v.descriptors)) return null;
+    const descriptors = v.descriptors.filter(
+      (d): d is number[] => Array.isArray(d) && d.length === 128 && d.every((n) => typeof n === "number"),
+    );
+    if (!descriptors.length) return null;
+    return { name: v.name.slice(0, 40), descriptors: descriptors.slice(0, 5) };
+  } catch {
+    return null;
+  }
+}
+
 export async function getSettings(): Promise<SettingsRow> {
   const rows = await db.select().from(settings).where(eq(settings.id, 1)).limit(1);
   if (rows[0]) return rows[0];
@@ -137,6 +152,7 @@ export function toPublicSettings(s: SettingsRow): PublicSettings {
     apiKeyPreview: preview(effective),
     aiKeyPreviews,
     premiumActive: hasPremium(s),
+    visionFace: parseVisionFace(s.visionFace),
     pcControl: s.pcControl,
     bootMusic: s.bootMusic,
     bootVolume: s.bootVolume,

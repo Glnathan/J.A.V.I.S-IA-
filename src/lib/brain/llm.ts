@@ -145,12 +145,97 @@ async function* sseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string
   }
 }
 
+/** Découpe une URL de données « data:image/jpeg;base64,… » en (type mime, base64). */
+function splitDataUrl(url: string): { mediaType: string; data: string } | null {
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(url.trim());
+  return m ? { mediaType: m[1], data: m[2] } : null;
+}
+
 export async function* streamChat(
   ai: ResolvedAI,
   system: string,
   history: ChatTurn[],
   signal?: AbortSignal,
+  image?: string,
 ): AsyncGenerator<string> {
+  if (image) {
+    // Vision (écran ou caméra) : l'image rejoint le dernier message de l'utilisateur.
+    const img = splitDataUrl(image);
+    if (!img) throw new Error("Format d'image non pris en charge.");
+    const last = history.length - 1;
+    if (last < 0 || history[last].role !== "user") history.push({ role: "user", content: "Décris cette image." });
+    if (ai.provider === "anthropic") {
+      const messages = history.map((h, i) =>
+        i === last && h.role === "user"
+          ? {
+              role: "user" as const,
+              content: [
+                { type: "image", source: { type: "base64", media_type: img.mediaType, data: img.data } },
+                { type: "text", text: h.content },
+              ],
+            }
+          : { role: h.role, content: h.content },
+      );
+      const res = await fetch(`${ai.baseUrl}/messages`, {
+        method: "POST",
+        headers: {
+          "x-api-key": ai.apiKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ model: ai.model, max_tokens: 1500, system, messages, stream: true }),
+        signal,
+      });
+      if (!res.ok || !res.body) throw new Error(await errorText(res));
+      for await (const data of sseData(res.body)) {
+        let j: { type?: string; delta?: { type?: string; text?: string }; error?: { message?: string } };
+        try {
+          j = JSON.parse(data);
+        } catch {
+          continue;
+        }
+        if (j.type === "content_block_delta" && j.delta?.type === "text_delta" && j.delta.text) yield j.delta.text;
+        if (j.type === "error") throw new Error(j.error?.message || "Erreur Anthropic");
+      }
+      return;
+    }
+    const messages = history.map((h, i) =>
+      i === last && h.role === "user"
+        ? {
+            role: "user" as const,
+            content: [
+              { type: "text", text: h.content },
+              { type: "image_url", image_url: { url: image } },
+            ],
+          }
+        : { role: h.role, content: h.content },
+    );
+    const headers: Record<string, string> = { "content-type": "application/json", authorization: `Bearer ${ai.apiKey}` };
+    if (ai.provider === "openrouter") {
+      headers["HTTP-Referer"] = "http://localhost:3000";
+      headers["X-Title"] = "JARVIS";
+    }
+    const res = await fetch(`${ai.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ model: ai.model, messages: [{ role: "system", content: system }, ...messages], stream: true }),
+      signal,
+    });
+    if (!res.ok || !res.body) throw new Error(await errorText(res));
+    for await (const data of sseData(res.body)) {
+      if (data === "[DONE]") break;
+      let j: { choices?: { delta?: { content?: string | null } }[]; error?: { message?: string } };
+      try {
+        j = JSON.parse(data);
+      } catch {
+        continue;
+      }
+      if (j.error) throw new Error(j.error.message || "Erreur du fournisseur IA");
+      const t = j.choices?.[0]?.delta?.content;
+      if (t) yield t;
+    }
+    return;
+  }
   if (ai.provider === "anthropic") {
     const res = await fetch(`${ai.baseUrl}/messages`, {
       method: "POST",

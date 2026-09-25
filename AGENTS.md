@@ -62,6 +62,12 @@ PostgreSQL / PGlite · plugins Python (pont JSON sur stdin/stdout) · NSIS pour 
   `scripts/generer-cle.mjs` (registre local `cles-vendues.csv`, ignoré par Git). Prix affiché : `PREMIUM_PRICE`
   dans `src/lib/premium.ts` (une seule constante pour l'onglet Premium et la page `/telecharger`). À l'activation
   d'une clé, `JarvisApp.tsx` (`onSettingsSaved`) prononce le message d'accueil Premium et flashe le thème or.
+- Mode Vision (Premium) : `src/components/jarvis/VisionPanel.tsx` — caméra + détection de mouvement par différence
+  d'images (TypeScript pur) + reconnaissance faciale via `src/lib/client/vision-face.ts` (face-api/TFJS WASM,
+  modèles dans `public/models/`, inscrits en base dans `settings.vision_face`, migration `drizzle/0005`). Intention
+  « vision » de `intents.ts` (verrou Premium côté serveur) ; vision de l'écran : action client `vision` → capture
+  `getDisplayMedia` → image jointe à `/api/chat` (`image` en URL de données) → `streamChat` multimodal
+  (OpenAI-compat `image_url`, Anthropic `image`).
 - `desktop/` : lanceur Node et scripts NSIS · `scripts/build-desktop.mjs` : fabrication de l'installateur
 - `plugins/` : plugins Python d'exemple (copiés dans `%USERPROFILE%\JARVIS\plugins` au premier lancement du PC)
 

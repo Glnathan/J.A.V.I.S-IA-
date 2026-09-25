@@ -289,6 +289,34 @@ export const INTENTS: Intent[] = [
         : null,
   },
 
+  // ─── Vision (Premium) ─────────────────────────────────────────────────
+  {
+    name: "vision",
+    run: async (c) => {
+      const f = c.f;
+      if (!/(vision|camera|webcam|ecran)/.test(f)) return null;
+      if (/(active|allume|ouvre|demarre|lance)\s+(la\s+|le\s+|ma\s+|mon\s+)?(vision|camera|webcam)/.test(f) || /^vision$/.test(f)) {
+        if (!hasPremium(c.s)) return say(`Le mode Vision est réservé à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+        return say(`Mode Vision activé. J'ouvre l'œil, ${c.sir}.`, { actions: [{ type: "vision", target: "panel" }, { type: "sound", name: "success" }] });
+      }
+      if (/(coupe|ferme|eteins|arrete|stoppe|desactive)\s+(la\s+|le\s+)?(vision|camera|webcam)/.test(f)) {
+        if (!hasPremium(c.s)) return say(`Le mode Vision est réservé à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+        return say(`Mode Vision désactivé, ${c.sir}.`, { actions: [{ type: "vision", target: "close" }] });
+      }
+      if (/(decris|decrit|analyse|que vois tu|dis moi ce que tu vois).*ecran|ecran.*(decris|decrit|analyse|que vois tu)/.test(f)) {
+        if (!hasPremium(c.s)) return say(`La vision de l'écran est réservée à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+        if (!c.hasLLM) return say(`Pour analyser votre écran, il me faut une IA connectée, ${c.sir}. Ajoutez une clé dans Paramètres → Intelligence.`);
+        return say(`Analyse de votre écran, ${c.sir}. Un instant.`, { actions: [{ type: "vision", target: "screen" }] });
+      }
+      if (/(decris|decrit|analyse|que vois tu|dis moi ce que tu vois|que vois tu)/.test(f) || /vision\s+camera/.test(f)) {
+        if (!hasPremium(c.s)) return say(`La vision est réservée à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+        if (!c.hasLLM) return say(`Pour analyser des images, il me faut une IA connectée, ${c.sir}. Ajoutez une clé dans Paramètres → Intelligence.`);
+        return say(`J'analyse ce que voit la caméra, ${c.sir}.`, { actions: [{ type: "vision", target: "camera" }] });
+      }
+      return null;
+    },
+  },
+
   // ─── Protocoles & modes ────────────────────────────────────────────────
   {
     name: "modes",

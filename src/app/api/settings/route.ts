@@ -1,6 +1,6 @@
 import { normalizeHaUrl } from "@/lib/brain/home-assistant";
 import { buildSettingsPayload } from "@/lib/brain/payload";
-import { getSettings, updateSettings, type SettingsPatch } from "@/lib/brain/settings";
+import { getSettings, parseVisionFace, updateSettings, type SettingsPatch } from "@/lib/brain/settings";
 import { isValidPremiumKey, normalizePremiumKey } from "@/lib/premium";
 import { getProvider } from "@/lib/providers";
 import { canonicalYouTubeUrl, parseYouTubeId } from "@/lib/youtube";
@@ -148,6 +148,16 @@ export async function PUT(req: Request) {
     if (!premiumKey) patch.premiumKey = "";
     else if (isValidPremiumKey(premiumKey)) patch.premiumKey = normalizePremiumKey(premiumKey);
     else return Response.json({ error: "Clé Premium invalide. Format attendu : JARVIS-XXXXX-XXXXX-XX." }, { status: 400 });
+  }
+
+  // Vision (édition Premium) : inscription du visage pour la reconnaissance.
+  const visionFace = str("visionFace", 200000);
+  if (visionFace !== undefined) {
+    if (visionFace === "") patch.visionFace = "";
+    else {
+      if (!parseVisionFace(visionFace)) return Response.json({ error: "Visage invalide (nom ou descripteurs)." }, { status: 400 });
+      patch.visionFace = visionFace;
+    }
   }
 
   // Home Assistant

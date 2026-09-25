@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
-  let body: { message?: unknown; conversationId?: unknown; client?: Partial<ClientContext> };
+  let body: { message?: unknown; conversationId?: unknown; client?: Partial<ClientContext>; image?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -21,6 +21,8 @@ export async function POST(req: Request) {
   }
   const raw = typeof body.message === "string" ? body.message.trim().slice(0, 4000) : "";
   if (!raw) return Response.json({ error: "Message vide" }, { status: 400 });
+  // Vision (écran ou caméra) : image jointe en URL de données, 5 Mo maximum.
+  const image = typeof body.image === "string" && body.image.startsWith("data:image/") && body.image.length < 5_500_000 ? body.image : undefined;
 
   touchActivity();
   const settings = await getSettings();
@@ -70,7 +72,16 @@ export async function POST(req: Request) {
       try {
         let pluginLabel: string | undefined;
         let local: BrainResult | null = null;
-        if (settings.pluginsEnabled && ctx.text) {
+        if (image) {
+          // Une image est jointe : seule l'IA (multimodale) peut la comprendre.
+          if (!ai) {
+            local = {
+              text: `Je ne peux pas analyser d'image sans IA connectée, ${ctx.sir}. Ajoutez une clé (Gemini ou OpenAI par exemple) dans Paramètres → Intelligence.`,
+              source: "local",
+            };
+          }
+        }
+        if (!local && settings.pluginsEnabled && ctx.text) {
           const out = await runPlugins(ctx.text, {
             appellation: ctx.sir,
             Appellation: ctx.Sir,
@@ -127,7 +138,7 @@ export async function POST(req: Request) {
           const system = buildSystemPrompt(ctx, mems.map((m) => m.content), pend);
           let full = "";
           try {
-            for await (const chunk of streamChat(ai, system, history, req.signal)) {
+            for await (const chunk of streamChat(ai, system, history, req.signal, image)) {
               full += chunk;
               send({ type: "delta", text: chunk });
             }

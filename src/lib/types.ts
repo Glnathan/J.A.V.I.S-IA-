@@ -17,7 +17,8 @@ export type ClientAction =
   | { type: "stop_music" }
   | { type: "sound"; name: "party" | "alert" | "success" | "theme" }
   | { type: "espace"; vue?: "systeme" | "satellites" }
-  | { type: "media" };
+  | { type: "media" }
+  | { type: "vision"; target: "panel" | "close" | "screen" | "camera" };
 
 export interface WeatherDay {
   date: string;
@@ -118,6 +119,8 @@ export interface PublicSettings {
   aiKeyPreviews: Record<string, string>;
   /** Édition Premium active (clé de licence valide). */
   premiumActive: boolean;
+  /** Visage inscrit pour la reconnaissance (édition Premium), null si aucun. */
+  visionFace: { name: string; descriptors: number[][] } | null;
   pcControl: boolean;
   bootMusic: string;
   bootVolume: number;
