@@ -145,6 +145,7 @@ export function toPublicSettings(s: SettingsRow): PublicSettings {
     voicePitch: s.voicePitch,
     autoSpeak: s.autoSpeak,
     wakeWord: s.wakeWord,
+    visionGate: s.visionGate,
     aiProvider: s.aiProvider,
     aiModel: s.aiModel,
     aiBaseUrl: s.aiBaseUrl,

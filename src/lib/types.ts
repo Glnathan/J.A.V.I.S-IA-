@@ -121,6 +121,8 @@ export interface PublicSettings {
   premiumActive: boolean;
   /** Visage inscrit pour la reconnaissance (édition Premium), null si aucun. */
   visionFace: { name: string; descriptors: number[][] } | null;
+  /** Veille faciale : le mot d'activation ne compte que si le visage inscrit est devant la caméra. */
+  visionGate: boolean;
   pcControl: boolean;
   bootMusic: string;
   bootVolume: number;

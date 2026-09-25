@@ -11,6 +11,7 @@ export interface SettingsForm {
   voicePitch: number;
   autoSpeak: boolean;
   wakeWord: boolean;
+  visionGate: boolean;
   aiProvider: string;
   aiModel: string;
   aiBaseUrl: string;
@@ -43,6 +44,7 @@ export function formFromSettings(s: PublicSettings): SettingsForm {
     voicePitch: s.voicePitch,
     autoSpeak: s.autoSpeak,
     wakeWord: s.wakeWord,
+    visionGate: s.visionGate,
     aiProvider: s.aiProvider,
     aiModel: s.aiModel,
     aiBaseUrl: s.aiBaseUrl,

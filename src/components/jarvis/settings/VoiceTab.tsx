@@ -117,6 +117,19 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
           label="Écoute permanente (mot d'activation « Jarvis »)"
           desc="Le micro reste actif : dites « Jarvis » suivi de votre demande, comme dans le film."
         />
+        <Toggle
+          checked={form.visionGate}
+          onChange={(v) => set("visionGate", v)}
+          disabled={!payload.settings.premiumActive || !payload.settings.visionFace}
+          label="Ne m'écouter qu'en présence de mon visage (Premium)"
+          desc={
+            !payload.settings.premiumActive
+              ? "Réservé à l'édition Premium : JARVIS vérifie que c'est bien vous devant la caméra avant d'obéir au mot d'activation."
+              : !payload.settings.visionFace
+                ? "Inscrivez d'abord votre visage : ouvrez la Vision (« Jarvis, active la vision ») puis « Inscrire mon visage »."
+                : "En écoute permanente, le mot « Jarvis » n'est obéi que si votre visage inscrit est devant la caméra — la télé ne commande plus JARVIS."
+          }
+        />
         <Field label="Voix" hint="Sous Windows, Microsoft Edge propose des voix naturelles très réalistes (ex. « Henri Online (Natural) »).">
           <select className="hud-field" value={form.voiceName} onChange={(e) => set("voiceName", e.target.value)}>
             <option value="">Automatique (meilleure voix française)</option>

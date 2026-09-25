@@ -1,0 +1,1 @@
+ALTER TABLE "settings" ADD COLUMN "vision_gate" boolean DEFAULT false NOT NULL;

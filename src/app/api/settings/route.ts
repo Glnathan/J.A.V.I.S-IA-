@@ -1,7 +1,7 @@
 import { normalizeHaUrl } from "@/lib/brain/home-assistant";
 import { buildSettingsPayload } from "@/lib/brain/payload";
 import { getSettings, parseVisionFace, updateSettings, type SettingsPatch } from "@/lib/brain/settings";
-import { isValidPremiumKey, normalizePremiumKey } from "@/lib/premium";
+import { isValidPremiumKey, hasPremium, normalizePremiumKey } from "@/lib/premium";
 import { getProvider } from "@/lib/providers";
 import { canonicalYouTubeUrl, parseYouTubeId } from "@/lib/youtube";
 
@@ -56,6 +56,15 @@ export async function PUT(req: Request) {
   if (autoSpeak !== undefined) patch.autoSpeak = autoSpeak;
   const wakeWord = bool("wakeWord");
   if (wakeWord !== undefined) patch.wakeWord = wakeWord;
+  // Veille faciale (Premium) : le booléen n'est appliqué que si une licence valide est présente.
+  const visionGate = bool("visionGate");
+  if (visionGate !== undefined) {
+    if (!visionGate) patch.visionGate = false;
+    else {
+      const s = await getSettings();
+      if (hasPremium(s)) patch.visionGate = true;
+    }
+  }
   const sttEngine = oneOf("sttEngine", ["auto", "browser", "whisper"] as const);
   if (sttEngine) patch.sttEngine = sttEngine;
   const sttProvider = oneOf("sttProvider", ["groq", "openai"] as const);

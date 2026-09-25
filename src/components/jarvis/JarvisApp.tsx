@@ -52,6 +52,7 @@ import {
 } from "@/lib/client/recognition";
 import { transcribe, VoiceCapture } from "@/lib/client/voice-capture";
 import { duckActiveMusic, startBootMusic, stopActiveMusic, type MusicOptions } from "@/lib/client/boot-theme";
+import { recognizeFrame } from "@/lib/client/vision-face";
 import { sfx } from "@/lib/client/sounds";
 import { getVoices, pickVoice, Speaker } from "@/lib/client/speech";
 import { parseYouTubeId, youTubeLabel } from "@/lib/youtube";
@@ -402,9 +403,87 @@ export default function JarvisApp() {
     }
   };
 
+  // ─── Veille faciale (Premium) : le mot « Jarvis » ne compte que si le
+  // visage inscrit est devant la caméra — la télé ne commande plus JARVIS.
+  const faceSeenAtRef = useRef(0);
+  const faceGateNoticeRef = useRef(0);
+  const visionGateActive = () =>
+    Boolean(payloadRef.current?.settings.visionGate && payloadRef.current?.settings.visionFace && wakeRef.current);
+  const faceGateOk = () => !visionGateActive() || Date.now() - faceSeenAtRef.current < 10000;
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    let video: HTMLVideoElement | null = null;
+    let canvas: HTMLCanvasElement | null = null;
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const active = () => Boolean(payload?.settings.visionGate && payload?.settings.visionFace && wakeMode);
+
+    const tick = async () => {
+      if (!alive || !active() || !canvas || !video) return;
+      try {
+        video.width = 320;
+        video.height = 240;
+        canvas.width = 320;
+        canvas.height = 240;
+        canvas.getContext("2d")?.drawImage(video, 0, 0, 320, 240);
+        const r = await recognizeFrame(canvas, payload?.settings.visionFace ?? null);
+        if (!alive) return;
+        if (r.status === "recognized") faceSeenAtRef.current = Date.now();
+      } catch {
+        /* caméra occupée : prochain essai */
+      } finally {
+        if (alive && active()) timer = setTimeout(() => void tick(), 2500);
+      }
+    };
+
+    const start = async () => {
+      if (stream || !alive || !active()) return;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 } } });
+        video = document.createElement("video");
+        video.muted = true;
+        video.playsInline = true;
+        video.srcObject = stream;
+        await video.play();
+        canvas = document.createElement("canvas");
+        void tick();
+      } catch {
+        stream?.getTracks().forEach((t) => t.stop());
+        stream = null;
+      }
+    };
+
+    const stop = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      stream?.getTracks().forEach((t) => t.stop());
+      stream = null;
+      if (video) video.srcObject = null;
+      video = null;
+    };
+
+    if (active()) void start();
+    else stop();
+    return () => {
+      alive = false;
+      stop();
+    };
+  }, [payload?.settings.visionGate, payload?.settings.visionFace, wakeMode]);
+
   const handleWake = (interimText: string, finalText: string) => {
     const now = Date.now();
     const awaitingNow = now < awaitingUntilRef.current;
+    // Veille faciale : sans visage inscrit devant la caméra, le mot d'activation est ignoré.
+    if (!faceGateOk()) {
+      if (WAKE_RE.test(foldText(finalText)) && now - faceGateNoticeRef.current > 60000) {
+        faceGateNoticeRef.current = now;
+        pushNotice("Mot « Jarvis » entendu sans visage reconnu — ignoré. (Veille faciale active : Paramètres → Voix & micro)");
+      }
+      setInterim("");
+      return;
+    }
     if (interimText && (awaitingNow || WAKE_RE.test(foldText(interimText)))) {
       setInterim(interimText);
       setStatus((s) => (s === "idle" ? "listening" : s));

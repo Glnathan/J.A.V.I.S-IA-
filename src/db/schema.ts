@@ -59,6 +59,8 @@ export const settings = pgTable("settings", {
   premiumKey: text("premium_key").notNull().default(""),
   /** Visage inscrit pour la reconnaissance (édition Premium) : JSON { name, descriptors }. */
   visionFace: text("vision_face").notNull().default(""),
+  /** Veille faciale (Premium) : l'écoute permanente ne s'active que si le visage inscrit est visible. */
+  visionGate: boolean("vision_gate").notNull().default(false),
   pcControl: boolean("pc_control").notNull().default(true),
   // "youtube" (Thunderstruck par défaut, lecteur YouTube officiel) | "custom" (fichier de l'utilisateur) | "theme" | "off"
   bootMusic: text("boot_music").notNull().default("youtube"),
