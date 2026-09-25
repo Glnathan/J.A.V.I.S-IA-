@@ -11,7 +11,7 @@ export interface StoredVoice {
 
 const MODEL_ID = "Xenova/wavlm-base-sv";
 /** Cosinus de similarité au-dessus duquel la voix est reconnue (0-1). */
-export const VOICE_THRESHOLD = 0.55;
+export const VOICE_THRESHOLD = 0.45;
 
 interface WorkerReply {
   id: number;

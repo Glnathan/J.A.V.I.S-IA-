@@ -409,6 +409,10 @@ export default function JarvisApp() {
   // disponible pour vos autres applications (Deezer, Discord, OBS…).
   const faceGateNoticeRef = useRef(0);
   const voiceGateNoticeRef = useRef(0);
+  /** Conversation libre (Premium) : sans mot d'activation jusqu'à silence ou « merci ». */
+  const converseUntilRef = useRef(0);
+  const converseLastAtRef = useRef(0);
+  const converseActive = () => Date.now() < converseUntilRef.current;
   const visionGateActive = () =>
     Boolean(payloadRef.current?.settings.visionGate && payloadRef.current?.settings.visionFace && wakeRef.current);
 
@@ -449,6 +453,23 @@ export default function JarvisApp() {
     }
     const text = finalText.trim();
     if (!text) return;
+    // Conversation libre : la phrase est une commande directe (déjà vérifiée par le verrou vocal).
+    if (converseActive()) {
+      converseLastAtRef.current = Date.now();
+      const spoken = finalText.trim();
+      if (/^(c est (tout|fini)|merci|fin de (la )?conversation|stop|arrete la conversation)/.test(foldText(spoken))) {
+        converseUntilRef.current = 0;
+        setInterim("");
+        sfx.success();
+        return;
+      }
+      if (spoken.length > 1) {
+        setInterim("");
+        awaitingUntilRef.current = 0;
+        fns.current.send(spoken, "voice");
+      }
+      return;
+    }
     const m = WAKE_RE.exec(foldText(finalText));
     if (m) {
       // Veille faciale : une brève vérification du visage au moment du mot
@@ -947,6 +968,17 @@ export default function JarvisApp() {
         case "media":
           setShowMedia(true);
           break;
+        case "converse":
+          if (a.on) {
+            converseUntilRef.current = Date.now() + 10 * 60 * 1000;
+            converseLastAtRef.current = Date.now();
+            setAwaiting(false);
+            awaitingUntilRef.current = 0;
+          } else {
+            converseUntilRef.current = 0;
+            setInterim("");
+          }
+          break;
         case "vision":
           if (a.target === "panel") setShowVision(true);
           else if (a.target === "close") setShowVision(false);
@@ -1215,6 +1247,11 @@ export default function JarvisApp() {
   // ─── Periodic checks: timers & reminders ───────────────────────────────
   const tick = () => {
     const now = Date.now();
+    // Conversation libre : elle s'achève après 60 s de silence.
+    if (converseUntilRef.current && now > converseLastAtRef.current + 60000) {
+      converseUntilRef.current = 0;
+      pushNotice("Conversation libre terminée (silence). Dites « Jarvis » pour me rappeler, ou « Jarvis, parlons » pour en ouvrir une nouvelle.");
+    }
     if (awaitingUntilRef.current && now > awaitingUntilRef.current) {
       awaitingUntilRef.current = 0;
       setAwaiting(false);
@@ -1596,8 +1633,9 @@ export default function JarvisApp() {
   const orbState: OrbState = status === "idle" ? (wakeMode ? "standby" : "idle") : status;
   const bootSetup = musicSetup(payload);
   const { sir } = addressOf(payload);
-  const statusLabel =
-    status === "listening"
+  const statusLabel = converseActive()
+    ? "CONVERSATION LIBRE — PARLEZ NORMALEMENT (MERCI POUR ARRÊTER)"
+    : status === "listening"
       ? awaiting
         ? "À VOTRE ÉCOUTE…"
         : "ÉCOUTE EN COURS…"

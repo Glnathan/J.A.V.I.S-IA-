@@ -289,6 +289,25 @@ export const INTENTS: Intent[] = [
         : null,
   },
 
+  // ─── Conversation libre (Premium) : sans mot d'activation ────────────────
+  {
+    name: "converse",
+    run: async (c) => {
+      const f = c.f;
+      if (/(fin de (la )?conversation|arrete la conversation|stoppe la conversation)/.test(f))
+        return say(`Très bien, ${c.sir}.`, { actions: [{ type: "converse", on: false }] });
+      if (/(parlons|mode conversation|conversation libre|discutons|on discute|discute avec moi)/.test(f)) {
+        if (!hasPremium(c.s)) return say(`La conversation libre est réservée à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+        if (!c.s.voicePrint || !c.s.voiceGate)
+          return say(`La conversation libre exige le verrou vocal, ${c.sir}. Inscrivez votre voix et activez « Ne m'écouter que ma voix » dans Paramètres → Voix & micro : sans lui, je répondrais aussi à votre télévision.`, { actions: [R_SETTINGS] });
+        return say(`Avec plaisir, ${c.sir}. Parlez-moi simplement — plus besoin de dire mon nom. Dites « merci » quand nous avons terminé.`, {
+          actions: [{ type: "converse", on: true }, { type: "sound", name: "success" }],
+        });
+      }
+      return null;
+    },
+  },
+
   // ─── Vision (Premium) ─────────────────────────────────────────────────
   {
     name: "vision",

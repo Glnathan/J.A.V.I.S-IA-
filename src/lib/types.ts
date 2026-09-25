@@ -18,7 +18,8 @@ export type ClientAction =
   | { type: "sound"; name: "party" | "alert" | "success" | "theme" }
   | { type: "espace"; vue?: "systeme" | "satellites" }
   | { type: "media" }
-  | { type: "vision"; target: "panel" | "close" | "screen" | "camera" };
+  | { type: "vision"; target: "panel" | "close" | "screen" | "camera" }
+  | { type: "converse"; on: boolean };
 
 export interface WeatherDay {
   date: string;
