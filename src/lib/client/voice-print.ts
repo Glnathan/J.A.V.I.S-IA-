@@ -16,18 +16,44 @@ export const VOICE_THRESHOLD = 0.55;
 let lib: Lib | null = null;
 let modelPromise: Promise<{ processor: Awaited<ReturnType<Lib["AutoProcessor"]["from_pretrained"]>>; model: Awaited<ReturnType<Lib["AutoModel"]["from_pretrained"]>> }> | null = null;
 
+/**
+ * Prépare le modèle (téléchargé depuis Hugging Face au premier emploi, ~100 Mo,
+ * puis mis en cache par le navigateur). À appeler AVANT les prises pour éviter
+ * l'attente silencieuse au milieu d'une inscription.
+ */
+export async function loadVoiceModel(): Promise<{ ok: boolean; error?: string }> {
+  try {
+    if (!lib) lib = await import("@huggingface/transformers");
+    // Charger depuis le hub Hugging Face (sinon la bibliothèque cherche d'abord un
+    // modèle local inexistant et échoue). Le cache navigateur prend le relais ensuite.
+    lib.env.allowLocalModels = false;
+    lib.env.useBrowserCache = true;
+    if (!modelPromise)
+      modelPromise = (async () => {
+        const processor = await lib!.AutoProcessor.from_pretrained(MODEL_ID);
+        const model = await lib!.AutoModel.from_pretrained(MODEL_ID, { dtype: "q8" });
+        return { processor, model };
+      })();
+    await modelPromise;
+    return { ok: true };
+  } catch (e) {
+    modelPromise = null;
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[jarvis] Modèle de voix :", msg);
+    return { ok: false, error: msg.slice(0, 200) };
+  }
+}
+
 async function ensureModel() {
   if (!lib) lib = await import("@huggingface/transformers");
-  if (!modelPromise)
-    modelPromise = (async () => {
-      const processor = await lib!.AutoProcessor.from_pretrained(MODEL_ID);
-      const model = await lib!.AutoModel.from_pretrained(MODEL_ID, { dtype: "q8" });
-      return { processor, model };
-    })();
+  lib.env.allowLocalModels = false;
+  lib.env.useBrowserCache = true;
+  if (!modelPromise) await loadVoiceModel();
+  if (!modelPromise) throw new Error("Modèle de voix indisponible");
   return modelPromise;
 }
 
-/** Empreinte du locuteur d'un enregistrement WAV (16 kHz mono) ; null si modèle indisponible. */
+/** Empreinte du locuteur d'un enregistrement WAV (16 kHz mono) ; null si échec. */
 export async function embedWav(blob: Blob): Promise<number[] | null> {
   let ctx: AudioContext | null = null;
   try {
@@ -39,7 +65,8 @@ export async function embedWav(blob: Blob): Promise<number[] | null> {
     const inputs = await processor(audio);
     const { embeddings } = await model(inputs);
     return Array.from(embeddings.data as Float32Array);
-  } catch {
+  } catch (e) {
+    console.error("[jarvis] Empreinte vocale :", e);
     return null;
   } finally {
     void ctx?.close();
@@ -69,6 +96,14 @@ export async function verifyWav(blob: Blob, stored: StoredVoice | null): Promise
   if (!e) return null;
   const best = Math.max(...stored.descriptors.map((d) => cosSim(e, d)));
   return best >= VOICE_THRESHOLD;
+}
+
+/** Similarité (0-1) d'un enregistrement avec la voix inscrite ; null si échec. */
+export async function similarityOf(blob: Blob, stored: StoredVoice | null): Promise<number | null> {
+  if (!stored || !stored.descriptors.length) return null;
+  const e = await embedWav(blob);
+  if (!e) return null;
+  return Math.max(...stored.descriptors.map((d) => cosSim(e, d)));
 }
 
 /** Empreinte vocale inscrite dans les réglages publics (null si aucune). */

@@ -4,7 +4,7 @@ import { ExternalLink, KeyRound, Loader2, Mic, Trash2, UserCheck } from "lucide-
 import { useMemo, useState } from "react";
 import type { SettingsPayload } from "@/lib/types";
 import { VoiceCapture } from "@/lib/client/voice-capture";
-import { embedWav } from "@/lib/client/voice-print";
+import { embedWav, loadVoiceModel, similarityOf } from "@/lib/client/voice-print";
 import MicDiagnostic from "../MicDiagnostic";
 import BootMusicSection from "./BootMusicSection";
 import type { SetField, SettingsForm } from "./form";
@@ -38,12 +38,14 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
 
   // ─── Empreinte vocale (Premium) ─────────────────────────────────────────
   const [voiceEnrolled, setVoiceEnrolled] = useState(Boolean(s.voicePrint));
-  const [voiceTake, setVoiceTake] = useState<number | null>(null); // 1-3 pendant l'inscription
+  const [voiceStep, setVoiceStep] = useState<string | null>(null); // message d'étape en cours
   const [voiceMsg, setVoiceMsg] = useState<string | null>(null);
+  const [voiceTest, setVoiceTest] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const captureOne = (): Promise<Blob | null> =>
+  const captureOne = (label: string): Promise<Blob | null> =>
     new Promise((resolve) => {
       let done = false;
+      setVoiceStep(label);
       const cap = new VoiceCapture({
         silenceMs: 1200,
         maxMs: 8000,
@@ -63,36 +65,65 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
           resolve(null);
         }
       });
-      // Sécurité : abandon après 10 s sans parole.
+      // Sécurité : abandon après 15 s sans parole.
       setTimeout(() => {
         if (!done) {
           done = true;
           cap.stop();
           resolve(null);
         }
-      }, 10000);
+      }, 15000);
     });
 
   const enrollVoice = async () => {
     setVoiceMsg(null);
+    setVoiceTest(null);
+    // 1. Modèle d'abord (téléchargement ~100 Mo la première fois, caché ensuite).
+    setVoiceStep("Chargement du modèle de reconnaissance vocale… (première fois : environ 100 Mo, quelques dizaines de secondes)");
+    const load = await loadVoiceModel();
+    if (!load.ok) {
+      setVoiceStep(null);
+      setVoiceMsg(`Modèle indisponible — vérifiez votre connexion Internet. (${load.error ?? "erreur inconnue"})`);
+      return;
+    }
+    // 2. Trois prises.
     const descriptors: number[][] = [];
     for (let i = 1; i <= 3; i++) {
-      setVoiceTake(i);
-      const wav = await captureOne();
+      const wav = await captureOne(`Prise ${i}/3 — parlez naturellement, puis taisez-vous une seconde…`);
       if (!wav) {
-        setVoiceTake(null);
-        setVoiceMsg("Micro indisponible ou silence — inscription interrompue, réessayez.");
+        setVoiceStep(null);
+        setVoiceMsg("Rien n'a été entendu sur cette prise — réessayez dans un endroit calme.");
         return;
       }
+      setVoiceStep(`Analyse de la prise ${i}…`);
       const e = await embedWav(wav);
       if (!e) {
-        setVoiceTake(null);
-        setVoiceMsg("Modèle de reconnaissance vocale introuvable — vérifiez votre connexion Internet puis réessayez.");
+        setVoiceStep(null);
+        setVoiceMsg("L'analyse vocale a échoué — réessayez.");
         return;
       }
       descriptors.push(e);
+      // Cohérence : une prise trop différente des précédentes gâcherait l'inscription.
+      if (i > 1) {
+        const cross = Math.max(...descriptors.slice(0, i - 1).map((d) => {
+          let dot = 0;
+          let na = 0;
+          let nb = 0;
+          for (let k = 0; k < d.length; k++) {
+            dot += d[k] * e[k];
+            na += d[k] * d[k];
+            nb += e[k] * e[k];
+          }
+          return dot / Math.sqrt(na * nb);
+        }));
+        if (cross < 0.4) {
+          setVoiceStep(null);
+          setVoiceMsg(`La prise ${i} est trop différente des précédentes (même personne ? même micro ?). Inscription relancée.`);
+          return void enrollVoice();
+        }
+      }
     }
-    setVoiceTake(null);
+    setVoiceStep("Enregistrement…");
     try {
       const r = await fetch("/api/settings", {
         method: "PUT",
@@ -100,14 +131,48 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
         body: JSON.stringify({ voicePrint: JSON.stringify({ descriptors }) }),
       });
       if (!r.ok) {
-        setVoiceMsg("Enregistrement refusé (licence Premium requise).");
+        const j = (await r.json().catch(() => ({}))) as { error?: string };
+        setVoiceStep(null);
+        setVoiceMsg(j.error ?? "Enregistrement refusé (licence Premium requise).");
         return;
       }
       setVoiceEnrolled(true);
-      setVoiceMsg("Voix inscrite. Activez « Ne m'écouter que ma voix » puis cliquez Enregistrer.");
+      setVoiceStep(null);
+      setVoiceMsg(null);
+      setVoiceTest({ ok: true, text: "Voix inscrite. Activez « Ne m'écouter que ma voix » puis cliquez Enregistrer — et validez avec « Tester ma voix »." });
     } catch {
+      setVoiceStep(null);
       setVoiceMsg("Le serveur ne répond pas.");
     }
+  };
+
+  const testVoice = async () => {
+    setVoiceTest(null);
+    setVoiceMsg(null);
+    const load = await loadVoiceModel();
+    if (!load.ok) {
+      setVoiceMsg(`Modèle indisponible. (${load.error ?? "erreur"})`);
+      return;
+    }
+    const wav = await captureOne("Test — parlez comme d'habitude…");
+    setVoiceStep("Analyse de votre voix…");
+    if (!wav) {
+      setVoiceStep(null);
+      setVoiceMsg("Rien n'a été entendu — réessayez.");
+      return;
+    }
+    const sim = await similarityOf(wav, { descriptors: s.voicePrint?.descriptors ?? [] });
+    setVoiceStep(null);
+    if (sim === null) {
+      setVoiceMsg("L'analyse a échoué — réessayez.");
+      return;
+    }
+    const pct = Math.round(sim * 100);
+    setVoiceTest(
+      sim >= 0.55
+        ? { ok: true, text: `Similarité avec votre voix inscrite : ${pct} % — voix reconnue.` }
+        : { ok: false, text: `Similarité : ${pct} % — voix NON reconnue. Parlez plus près du micro ou réinscrivez votre voix.` },
+    );
   };
 
   return (
@@ -220,14 +285,20 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
           }
         />
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <button type="button" className="hud-btn" onClick={() => void enrollVoice()} disabled={voiceTake !== null}>
-            {voiceTake !== null ? <Loader2 size={13} className="animate-spin" /> : <UserCheck size={13} />}
-            {voiceTake !== null ? `Prise ${voiceTake}/3 — parlez…` : voiceEnrolled ? "Inscrire à nouveau ma voix" : "Inscrire ma voix (3 prises)"}
+          <button type="button" className="hud-btn" onClick={() => void enrollVoice()} disabled={voiceStep !== null}>
+            {voiceStep ? <Loader2 size={13} className="animate-spin" /> : <UserCheck size={13} />}
+            {voiceEnrolled ? "Inscrire à nouveau ma voix" : "Inscrire ma voix (3 prises)"}
           </button>
-          {voiceTake !== null && <span className="text-xs text-hud">Dites une phrase naturelle, puis taisez-vous une seconde.</span>}
-          {voiceEnrolled && <Mic size={13} className="text-emerald-400" />}
+          {voiceEnrolled && (
+            <button type="button" className="hud-btn" onClick={() => void testVoice()} disabled={voiceStep !== null}>
+              {voiceStep ? <Loader2 size={13} className="animate-spin" /> : <Mic size={13} />} Tester ma voix
+            </button>
+          )}
+          {voiceEnrolled && !voiceStep && <span className="flex items-center gap-1 text-xs text-emerald-300"><Mic size={11} /> voix inscrite</span>}
         </div>
+        {voiceStep && <p className="text-xs text-hud">{voiceStep}</p>}
         {voiceMsg && <p className="text-xs text-amber-200">{voiceMsg}</p>}
+        {voiceTest && <p className={`text-xs ${voiceTest.ok ? "text-emerald-300" : "text-red-300"}`}>{voiceTest.ok ? "✓ " : "✗ "}{voiceTest.text}</p>}
         <Field label="Voix" hint="Sous Windows, Microsoft Edge propose des voix naturelles très réalistes (ex. « Henri Online (Natural) »).">
           <select className="hud-field" value={form.voiceName} onChange={(e) => set("voiceName", e.target.value)}>
             <option value="">Automatique (meilleure voix française)</option>
