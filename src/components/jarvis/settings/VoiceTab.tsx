@@ -77,6 +77,12 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
       }, 15000);
     });
 
+  const VOICE_PHRASES = [
+    "Bonjour Jarvis, aujourd'hui tu vas apprendre à reconnaître ma voix.",
+    "Jarvis, quelle heure est-il et quel temps fait-il dehors ?",
+    "Jarvis, décris ce que tu vois et ouvre la vision.",
+  ];
+
   const enrollVoice = async () => {
     setVoiceMsg(null);
     setVoiceTest(null);
@@ -91,7 +97,7 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
     // 2. Trois prises.
     const descriptors: number[][] = [];
     for (let i = 1; i <= 3; i++) {
-      const wav = await captureOne(`Prise ${i}/3 — parlez naturellement, puis taisez-vous une seconde…`);
+      const wav = await captureOne(`Prise ${i}/3 — dites : « ${VOICE_PHRASES[i - 1]} »`);
       if (!wav) {
         setVoiceStep(null);
         setVoiceMsg("Rien n'a été entendu sur cette prise — réessayez dans un endroit calme.");
