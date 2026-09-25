@@ -33,7 +33,9 @@ import HistoryDrawer from "./HistoryDrawer";
 import HomePanel from "./HomePanel";
 import MicDiagnostic from "./MicDiagnostic";
 import Onboarding from "./Onboarding";
+import ScreenSaver from "./ScreenSaver";
 import SettingsModal, { type SettingsTab } from "./SettingsModal";
+import TelemetryBanner from "./TelemetryBanner";
 import { AICorePanel, AgendaPanel, Clock, MailsPanel, MemoryPanel, PythonPanel, SystemPanel, TasksPanel, TimersPanel, WeatherWidget, type Timer } from "./SidePanels";
 import {
   browserInfo,
@@ -1039,6 +1041,7 @@ export default function JarvisApp() {
         provider: m.meta?.provider,
         cards: m.meta?.cards,
         createdAt: Date.parse(m.createdAt),
+        instant: true,
       }));
       abortRef.current?.abort();
       speakerRef.current?.cancel();
@@ -1419,7 +1422,7 @@ export default function JarvisApp() {
       )}
 
       {booted && (
-        <div className="fade-in relative z-10 flex h-dvh flex-col">
+        <div className="fade-in relative z-10 flex h-dvh flex-col pb-7">
           <header className="relative z-20 flex items-center gap-3 px-3 py-3 lg:px-5">
             <div className="flex min-w-0 items-center gap-3">
               <div className="relative h-9 w-9 shrink-0">
@@ -1614,8 +1617,23 @@ export default function JarvisApp() {
               <MemoryPanel memories={memories} onAdd={(c) => void addMemory(c)} onDelete={(id) => void deleteMemory(id)} />
             </aside>
           </main>
+          <TelemetryBanner ai={aiLabel} mic={listenMode === "ptt" ? "écoute" : wakeMode ? "veille active" : "prêt"} />
         </div>
       )}
+
+      <ScreenSaver
+        activityKey={[booted, status, interim, messages.length, listenMode]}
+        disabled={
+          !booted ||
+          shutdown ||
+          settingsTab !== null ||
+          showHistory ||
+          spaceVue !== null ||
+          showMedia ||
+          showMicTest ||
+          showOnboarding
+        }
+      />
 
       {shutdown && (
         <div className="fade-in fixed inset-0 z-[70] grid place-items-center bg-black/95 px-6 text-center">

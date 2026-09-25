@@ -1,7 +1,7 @@
 "use client";
 
 import { Cpu, ExternalLink, MemoryStick, Newspaper, Server } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Card, SystemStats, WeatherData } from "@/lib/types";
 
 export interface UIMessage {
@@ -16,6 +16,8 @@ export interface UIMessage {
   createdAt: number;
   blocked?: { label: string; url: string }[];
   via?: "voice" | "text";
+  /** true = affiché immédiatement (historique rechargé), sans effet de frappe. */
+  instant?: boolean;
 }
 
 export function stripTags(t: string): string {
@@ -305,6 +307,39 @@ function Typing() {
   );
 }
 
+/** Révèle le texte progressivement ; accélère quand tout le texte est déjà arrivé. */
+function useTypewriter(text: string, enabled: boolean) {
+  const [shown, setShown] = useState(enabled ? "" : text);
+  const posRef = useRef(0);
+  useEffect(() => {
+    if (!enabled) return;
+    const timer = setInterval(() => {
+      const pos = posRef.current;
+      if (pos >= text.length) {
+        setShown(text);
+        return;
+      }
+      const behind = text.length - pos;
+      const step = behind > 120 ? Math.ceil(behind / 10) : behind > 40 ? 5 : 2;
+      posRef.current = Math.min(text.length, pos + step);
+      setShown(text.slice(0, posRef.current));
+    }, 30);
+    return () => clearInterval(timer);
+  }, [text, enabled]);
+  return enabled ? shown : text;
+}
+
+function AssistantText({ text, instant }: { text: string; instant?: boolean }) {
+  const shown = useTypewriter(text, !instant);
+  const done = shown.length >= text.length;
+  return (
+    <>
+      <RichText text={shown} />
+      {!done && <span className="caret" />}
+    </>
+  );
+}
+
 function MessageRow({ m }: { m: UIMessage }) {
   const time = new Date(m.createdAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   if (m.role === "notice") {
@@ -340,8 +375,7 @@ function MessageRow({ m }: { m: UIMessage }) {
           {src ? ` · ${src}` : ""}
         </div>
         <div className={`hud-bubble ${m.error ? "!border-red-500/50 !bg-red-500/10" : ""}`}>
-          {text ? <RichText text={text} /> : m.pending ? <Typing /> : null}
-          {m.pending && text ? <span className="caret" /> : null}
+          {text ? <AssistantText text={text} instant={m.instant} /> : m.pending ? <Typing /> : null}
         </div>
         {m.cards?.map((c, i) => <CardView key={i} card={c} />)}
         {m.blocked?.length ? (

@@ -14,10 +14,13 @@ interface Props {
 
 const SEGMENTS = Array.from({ length: 10 }, (_, i) => i * 36);
 const TICKS = Array.from({ length: 60 }, (_, i) => i * 6);
+const BARS = Array.from({ length: 48 }, (_, i) => i * 7.5);
 
 export default function ArcReactor({ state, levelRef, className = "", onClick, title }: Props) {
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const rings = useRef<(SVGGElement | null)[]>([]);
+  const bars = useRef<(SVGLineElement | null)[]>([]);
+  const barLvls = useRef<number[]>(BARS.map(() => 0));
   const core = useRef<SVGCircleElement | null>(null);
   const halo = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef<OrbState>(state);
@@ -44,6 +47,15 @@ export default function ArcReactor({ state, levelRef, className = "", onClick, t
       if (st === "thinking") raw = Math.max(raw, 0.15 + 0.1 * Math.sin(now / 160));
       lvl += (raw - lvl) * Math.min(1, dt * 10);
       if (st !== "listening") levelRef.current = Math.max(0, levelRef.current - dt * 1.8);
+      for (let i = 0; i < BARS.length; i++) {
+        const phase = i * 0.83;
+        const target = lvl * (0.3 + 0.7 * Math.abs(Math.sin(now / 150 + phase) * Math.cos(now / 470 + phase * 2)));
+        const bl = barLvls.current;
+        bl[i] += (target - bl[i]) * Math.min(1, dt * 16);
+        const len = 3 + bl[i] * 24;
+        bars.current[i]?.setAttribute("y2", (90 + len).toFixed(2));
+        bars.current[i]?.setAttribute("opacity", (0.3 + bl[i] * 0.7).toFixed(3));
+      }
       for (let i = 0; i < angles.length; i++) {
         angles[i] = (angles[i] + speeds[i] * mult * dt + 360) % 360;
         rings.current[i]?.setAttribute("transform", `rotate(${angles[i].toFixed(2)} 200 200)`);
@@ -131,6 +143,24 @@ export default function ArcReactor({ state, levelRef, className = "", onClick, t
                 fillOpacity="0.18"
                 stroke="currentColor"
                 strokeWidth="1.5"
+                transform={`rotate(${a} 200 200)`}
+              />
+            ))}
+          </g>
+
+          <g filter={`url(#${uid}-glow)`}>
+            {BARS.map((a, i) => (
+              <line
+                key={a}
+                ref={(el) => { bars.current[i] = el; }}
+                x1="200"
+                y1="90"
+                x2="200"
+                y2="94"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                opacity="0.3"
                 transform={`rotate(${a} 200 200)`}
               />
             ))}

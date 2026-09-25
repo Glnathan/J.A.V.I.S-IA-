@@ -593,3 +593,65 @@ input[type="datetime-local"].hud-field {
     opacity: 0.35;
   }
 }
+
+/* ─── Bandeau télémétrie (ticker bas d'écran) ────────────────── */
+.telemetry-banner {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 30;
+  height: 26px;
+  overflow: hidden;
+  pointer-events: none;
+  border-top: 1px solid rgb(var(--hud-rgb) / 0.18);
+  background: rgb(2 6 12 / 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: rgb(var(--hud-rgb) / 0.62);
+  text-transform: uppercase;
+  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+}
+.telemetry-track {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  width: max-content;
+  white-space: nowrap;
+  animation: telemetry-scroll 60s linear infinite;
+}
+.telemetry-track > span {
+  padding-right: 3rem;
+}
+@keyframes telemetry-scroll {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ─── Écran de veille ───────────────────────────────────────── */
+.saver-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px dashed rgb(var(--hud-rgb) / 0.35);
+  animation: saver-spin 60s linear infinite;
+}
+.saver-ring::before {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  border-radius: 50%;
+  border: 1px solid rgb(var(--hud-rgb) / 0.18);
+}
+@keyframes saver-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.saver-fade {
+  animation: fade-in 0.9s ease-out both;
+}
