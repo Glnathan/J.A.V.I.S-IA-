@@ -14,6 +14,7 @@ import { planetDistance, planetPosition, moonPosition } from "@/lib/solar";
 import { handleHome, looksLikeHomeCommand } from "./home-intent";
 import { haConfig } from "./home-assistant";
 import { hasPremium } from "@/lib/premium";
+import { resolveSTT } from "./stt";
 import { favoritesOf, isTitle, updateSettings, type SettingsRow } from "./settings";
 import { findSite, SEARCH } from "./sites";
 import { getServerStats } from "./system";
@@ -300,6 +301,8 @@ export const INTENTS: Intent[] = [
         if (!hasPremium(c.s)) return say(`La conversation libre est réservée à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
         if (!c.s.voicePrint || !c.s.voiceGate)
           return say(`La conversation libre exige le verrou vocal, ${c.sir}. Inscrivez votre voix et activez « Ne m'écouter que ma voix » dans Paramètres → Voix & micro : sans lui, je répondrais aussi à votre télévision.`, { actions: [R_SETTINGS] });
+        if (!resolveSTT(c.s))
+          return say(`La conversation libre nécessite Whisper, ${c.sir}. Configurez une clé de transcription dans Paramètres → Voix & micro.`, { actions: [R_SETTINGS] });
         return say(`Avec plaisir, ${c.sir}. Parlez-moi simplement — plus besoin de dire mon nom. Dites « merci » quand nous avons terminé.`, {
           actions: [{ type: "converse", on: true }, { type: "sound", name: "success" }],
         });

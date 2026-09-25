@@ -437,14 +437,15 @@ export default function JarvisApp() {
       const r = await recognizeFrame(canvas, face);
       return r.status === "recognized";
     } catch {
-      return null; // caméra occupée ou refusée : on ne bloque pas
+      return null; // caméra occupée ou refusée : vérification impossible
     } finally {
       stream?.getTracks().forEach((t) => t.stop());
       if (video) video.srcObject = null;
     }
   };
 
-  const handleWake = async (interimText: string, finalText: string) => {
+  const handleWake = async (interimText: string, finalText: string, voiceVerified = false) => {
+    if (voiceGateActive() && !voiceVerified) return;
     const now = Date.now();
     const awaitingNow = now < awaitingUntilRef.current;
     if (interimText && (awaitingNow || WAKE_RE.test(foldText(interimText)))) {
@@ -454,10 +455,10 @@ export default function JarvisApp() {
     const text = finalText.trim();
     if (!text) return;
     // Conversation libre : la phrase est une commande directe (déjà vérifiée par le verrou vocal).
-    if (converseActive()) {
+    if (converseActive() && voiceGateActive() && voiceVerified) {
       converseLastAtRef.current = Date.now();
       const spoken = finalText.trim();
-      if (/^(c est (tout|fini)|merci|fin de (la )?conversation|stop|arrete la conversation)/.test(foldText(spoken))) {
+      if (/^(c est (tout|fini)|merci|fin de (la )?conversation|stop|arrete la conversation)\b/.test(foldText(spoken).replace(/[’']/g, " "))) {
         converseUntilRef.current = 0;
         setInterim("");
         sfx.success();
@@ -478,10 +479,12 @@ export default function JarvisApp() {
         setStatus("thinking");
         const faceOk = await checkFaceNow();
         setStatus((s) => (s === "thinking" ? "idle" : s));
-        if (faceOk === false) {
+        if (faceOk !== true) {
           if (now - faceGateNoticeRef.current > 60000) {
             faceGateNoticeRef.current = now;
-            pushNotice("Mot « Jarvis » entendu sans visage reconnu — ignoré. (Veille faciale active : Paramètres → Voix & micro)");
+            pushNotice(faceOk === null
+              ? "Vérification du visage impossible — commande ignorée. Vérifiez l'accès à la caméra dans Paramètres → Voix & micro."
+              : "Mot « Jarvis » entendu sans visage reconnu — ignoré. (Veille faciale active : Paramètres → Voix & micro)");
           }
           setInterim("");
           return;
@@ -521,7 +524,7 @@ export default function JarvisApp() {
 
   /** Verrou vocal (Premium) : la voix de chaque phrase est vérifiée en écoute permanente. */
   const voiceGateActive = () =>
-    Boolean(payloadRef.current?.settings.voiceGate && payloadRef.current?.settings.voicePrint && payloadRef.current?.settings.premiumActive);
+    Boolean(payloadRef.current?.settings.voiceGate && payloadRef.current?.settings.premiumActive);
 
   /** "browser" = Web Speech API (Chrome/Edge) ; "whisper" = server-side transcription (all browsers). */
   const currentEngine = (mode: "ptt" | "wake" = "ptt"): "browser" | "whisper" => {
@@ -555,17 +558,21 @@ export default function JarvisApp() {
       setStatus("thinking");
     }
     try {
+      let voiceVerified = false;
       // Verrou vocal : avant toute transcription en veille, la voix doit être la vôtre.
       if (mode === "wake" && voiceGateActive()) {
         const mine = await verifyWav(wav, payloadRef.current?.settings.voicePrint ?? null);
         const now = Date.now();
-        if (mine === false) {
+        if (mine !== true) {
           if (now - voiceGateNoticeRef.current > 60000) {
             voiceGateNoticeRef.current = now;
-            pushNotice("Voix non reconnue — ignorée. (Verrou vocal actif : Paramètres → Voix & micro)");
+            pushNotice(mine === null
+              ? "Vérification vocale indisponible — commande ignorée. Vérifiez votre empreinte vocale et le chargement du modèle dans Paramètres → Voix & micro."
+              : "Voix non reconnue — ignorée. (Verrou vocal actif : Paramètres → Voix & micro)");
           }
           return;
         }
+        voiceVerified = true;
       }
       const { text, suspect } = await transcribe(wav);
       if (mode === "ptt") {
@@ -576,8 +583,8 @@ export default function JarvisApp() {
           return;
         }
         void sendMessage(text, "voice");
-      } else if (text && !suspect) {
-        handleWake("", text);
+      } else if (text && (!suspect || (voiceVerified && converseActive() && /^merci(?: beaucoup)?[.!?\s]*$/i.test(text.trim())))) {
+        await handleWake("", text, voiceVerified);
       }
     } catch (err) {
       setInterim("");
@@ -652,6 +659,12 @@ export default function JarvisApp() {
 
   const startRecognition = (mode: "ptt" | "wake"): boolean => {
     if (micDiagnosticRef.current || micReservedRef.current) return false;
+    if (mode === "wake" && voiceGateActive() && !payloadRef.current?.stt.available) {
+      stopRecognition();
+      converseUntilRef.current = 0;
+      setMicError("Le verrou vocal nécessite Whisper. Configurez-le dans Paramètres → Voix & micro pour reprendre l'écoute protégée.");
+      return false;
+    }
     if (currentEngine(mode) === "whisper") {
       void startWhisper(mode);
       return true;
@@ -857,6 +870,7 @@ export default function JarvisApp() {
       quickFailsRef.current = 0;
       if (!recRef.current && !speakerRef.current?.speaking) startRecognition("wake");
     } else {
+      converseUntilRef.current = 0;
       if (listenRef.current === "wake") stopRecognition();
       awaitingUntilRef.current = 0;
       setAwaiting(false);
@@ -970,10 +984,15 @@ export default function JarvisApp() {
           break;
         case "converse":
           if (a.on) {
+            if (!voiceGateActive() || !payloadRef.current?.settings.voicePrint || !payloadRef.current?.stt.available) {
+              pushNotice("La conversation libre nécessite une voix inscrite, le verrou vocal et Whisper disponible.");
+              break;
+            }
             converseUntilRef.current = Date.now() + 10 * 60 * 1000;
             converseLastAtRef.current = Date.now();
             setAwaiting(false);
             awaitingUntilRef.current = 0;
+            if (!wakeRef.current) setWake(true);
           } else {
             converseUntilRef.current = 0;
             setInterim("");
@@ -1568,9 +1587,13 @@ export default function JarvisApp() {
     const prevSttOk = payloadRef.current?.stt.available;
     const wasPremium = payloadRef.current?.settings.premiumActive ?? false;
     if (prevEngine !== p.settings.sttEngine) engineFailedRef.current = false;
-    const engineChanged = prevEngine !== p.settings.sttEngine || prevSttOk !== p.stt.available;
+    const protectionChanged = payloadRef.current?.settings.voiceGate !== p.settings.voiceGate
+      || payloadRef.current?.settings.premiumActive !== p.settings.premiumActive
+      || payloadRef.current?.settings.voicePrint !== p.settings.voicePrint;
+    const engineChanged = prevEngine !== p.settings.sttEngine || prevSttOk !== p.stt.available || protectionChanged;
     payloadRef.current = p;
     setPayload(p);
+    if (!p.settings.voiceGate || !p.settings.voicePrint || !p.settings.premiumActive || !p.stt.available) converseUntilRef.current = 0;
     if (!wasPremium && p.settings.premiumActive) {
       // Activation de la licence : message d'accueil Premium, voix et éclair doré éphémère.
       const { sir } = addressOf(p);

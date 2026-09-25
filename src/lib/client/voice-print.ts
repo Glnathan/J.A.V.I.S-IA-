@@ -126,7 +126,7 @@ export function cosSim(a: number[], b: number[]): number {
 
 /**
  * La voix de l'enregistrement est-elle celle de l'utilisateur inscrit ?
- * true / false ; null = modèle indisponible (on ne bloque pas dans ce cas).
+ * true / false ; null = vérification impossible, la commande protégée doit être refusée.
  */
 export async function verifyWav(blob: Blob, stored: StoredVoice | null): Promise<boolean | null> {
   if (!stored || !stored.descriptors.length) return null;

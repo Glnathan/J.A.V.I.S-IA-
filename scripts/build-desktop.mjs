@@ -178,7 +178,9 @@ async function main() {
   const appDir = path.join(PAYLOAD, "app");
   copyTree(standalone, appDir, (p) => {
     const r = rel(standalone, p);
-    return /^(downloads|dist-desktop|\.cache-desktop|\.jarvis-data|\.git|plugins|python|drizzle)(\/|$)/.test(r) || /^\.env/.test(path.basename(p));
+    // Le traçage dynamique de Next peut inclure tout le projet, dont le registre
+    // privé du vendeur. Seul le runtime autonome doit être distribué ici.
+    return Boolean(r) && !/^(\.next-desktop|node_modules)(\/|$)|^(server\.js|package\.json)$/.test(r);
   });
   copyTree(path.join(ROOT, NEXT_DIST, "static"), path.join(appDir, NEXT_DIST, "static"));
   copyTree(path.join(ROOT, "public"), path.join(appDir, "public"));
@@ -245,6 +247,8 @@ async function main() {
       return (
         /^(node_modules|\.next|\.next-desktop|dist-desktop|downloads|\.cache-desktop|\.jarvis-data|\.git|\.env)(\/|$)/.test(r) ||
         r.endsWith(".tsbuildinfo") ||
+        r === "cles-vendues.csv" ||
+        /^sauvegardes-espace(\/|$)/.test(r) ||
         r.includes("__pycache__") ||
         r === "next-env.d.ts"
       );

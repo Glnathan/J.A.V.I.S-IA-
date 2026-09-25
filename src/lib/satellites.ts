@@ -34,7 +34,7 @@ export async function fetchTles():Promise<Tle[]>{
  if(cache&&Date.now()-cache.at<TLE_CACHE_MS&&!warning)return cache.tles;
  if(pending)return pending;
  pending=(async()=>{
-  if(!cache){for(const file of [path.join(dataDir(),'space-orbits-active.json'),path.join(resourcesDir(),'public','space-seed.json')]){try{const d=JSON.parse(await fs.readFile(file,'utf8'));if(Array.isArray(d.tles)&&d.tles.length&&Number.isFinite(d.at)){cache=d;warning=d.warning||'';break;}}catch{}}}
+  if(!cache){for(const file of [path.join(dataDir(),'space-orbits.json'),path.join(dataDir(),'space-orbits-active.json'),path.join(resourcesDir(),'public','space-seed.json')]){try{const d=JSON.parse(await fs.readFile(file,'utf8'));if(Array.isArray(d.tles)&&d.tles.length&&Number.isFinite(d.at)){cache=d;warning=d.warning||'';break;}}catch{}}}
   if(Date.now()-lastAttempt<3600_000)return cache?.tles??[];
   lastAttempt=Date.now();const out:Tle[]=[];let failed=0;
   for(const [group,max] of GROUPS){try{const r=await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP='+group+'&FORMAT=json',{signal:AbortSignal.timeout(12000)});if(!r.ok)throw Error(String(r.status));const data=await r.json();if(!Array.isArray(data)||!data.length)throw Error('empty');for(const omm of (max?data.slice(0,max):data)){if(!Number.isFinite(omm.NORAD_CAT_ID)||!omm.EPOCH)continue;out.push({name:String(omm.OBJECT_NAME),group:/STARLINK/i.test(omm.OBJECT_NAME)?'starlink':/GPS|GALILEO|BEIDOU/i.test(omm.OBJECT_NAME)?'navigation':/ISS|CSS |TIANGONG/i.test(omm.OBJECT_NAME)?'stations':'autres',l1:'',l2:'',omm});}}catch{failed++;}}
