@@ -151,11 +151,14 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
   const testVoice = async () => {
     setVoiceTest(null);
     setVoiceMsg(null);
+    setVoiceStep("Chargement du modèle de reconnaissance vocale… (première fois : environ 100 Mo)");
     const load = await loadVoiceModel();
     if (!load.ok) {
+      setVoiceStep(null);
       setVoiceMsg(`Modèle indisponible. (${load.error ?? "erreur"})`);
       return;
     }
+    setVoiceStep(null);
     const wav = await captureOne("Test — parlez comme d'habitude…");
     setVoiceStep("Analyse de votre voix…");
     if (!wav) {

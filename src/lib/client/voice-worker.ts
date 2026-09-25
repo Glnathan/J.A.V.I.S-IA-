@@ -2,9 +2,14 @@
 // Worker de reconnaissance vocale J.A.R.V.I.S. : le modèle WavLM X-Vector y est
 // chargé et exécuté hors de la fenêtre principale — si le WebAssembly plantait,
 // seule l'analyse échouerait, jamais l'interface.
-import { AutoModel, AutoProcessor, env, type Processor, type PreTrainedModel } from "@xenova/transformers";
+//
+// IMPORTANT : transformers.js est chargé depuis le CDN au runtime, jamais depuis
+// le bundle (l'empaquetage du moteur ONNX par le compilateur corrompt le WebAssembly
+// et fait planter le rendu — vérifié par auto-test : la version CDN fonctionne).
+import type { Processor, PreTrainedModel } from "@xenova/transformers";
 
 const MODEL_ID = "Xenova/wavlm-base-sv";
+const CDN = "https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2";
 
 let processor: Processor | null = null;
 let model: PreTrainedModel | null = null;
@@ -14,15 +19,17 @@ async function ensureModel(): Promise<void> {
   if (model && processor) return;
   if (!loading)
     loading = (async () => {
-      env.allowLocalModels = false;
-      env.useBrowserCache = true;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const T: any = await import(/* webpackIgnore: true */ /* turbopackIgnore: true */ CDN);
+      T.env.allowLocalModels = false;
+      T.env.useBrowserCache = true;
       try {
-        env.backends.onnx.wasm.numThreads = 1;
+        T.env.backends.onnx.wasm.numThreads = 1;
       } catch {
         /* option absente : comportement par défaut */
       }
-      processor = await AutoProcessor.from_pretrained(MODEL_ID);
-      model = await AutoModel.from_pretrained(MODEL_ID, { quantized: true });
+      processor = await T.AutoProcessor.from_pretrained(MODEL_ID);
+      model = await T.AutoModel.from_pretrained(MODEL_ID, { quantized: true });
     })();
   await loading;
 }
