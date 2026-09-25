@@ -16,7 +16,7 @@ export interface ChatTurn {
   content: string;
 }
 
-const AUTO_ORDER: ProviderId[] = ["openai", "anthropic", "groq", "gemini", "mistral", "openrouter", "deepseek"];
+const AUTO_ORDER: ProviderId[] = ["openai", "anthropic", "groq", "gemini", "mistral", "openrouter", "deepseek", "xai"];
 
 function envKey(keys: string[]): string {
   for (const k of keys) {

@@ -31,6 +31,9 @@ export interface SettingsForm {
   haUrl: string;
   haUseAssist: boolean;
   haAllowSensitive: boolean;
+  obsidianVault: string;
+  elevenVoiceId: string;
+  elevenOn: boolean;
 }
 
 export type SetField = <K extends keyof SettingsForm>(key: K, value: SettingsForm[K]) => void;
@@ -66,6 +69,9 @@ export function formFromSettings(s: PublicSettings): SettingsForm {
     haUrl: s.haUrl,
     haUseAssist: s.haUseAssist,
     haAllowSensitive: s.haAllowSensitive,
+    obsidianVault: s.obsidianVault,
+    elevenVoiceId: s.elevenVoiceId,
+    elevenOn: s.elevenOn,
   };
 }
 

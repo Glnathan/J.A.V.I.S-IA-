@@ -108,6 +108,26 @@ function KeyField({ label, placeholder }: { label: string; placeholder: string }
 export default function InstallTab({ payload, canInstall, onInstall, pcControl, onPcControl, onQuit }: Props) {
   const [downloads, setDownloads] = useState<DownloadItem[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [scan, setScan] = useState<{ busy: boolean; text?: string }>({ busy: false });
+  const runScan = async () => {
+    setScan({ busy: true });
+    try {
+      const r = await fetch("/api/security", { method: "POST" });
+      const j = (await r.json().catch(() => ({}))) as { error?: string; ok?: boolean; totalProcesses?: number; processes?: string[]; startups?: string[] };
+      if (j.error) setScan({ busy: false, text: `✗ ${j.error}` });
+      else if (j.ok) {
+        const nb = (j.processes?.length ?? 0) + (j.startups?.length ?? 0);
+        setScan({
+          busy: false,
+          text: nb
+            ? `⚠ ${nb} élément(s) à vérifier — ${[...(j.processes ?? []), ...(j.startups ?? [])].slice(0, 5).map((x) => x.split("|")[0]).join(", ")}`
+            : `✓ Aucune anomalie : ${j.totalProcesses} processus analysés, démarrage propre.`,
+        });
+      } else setScan({ busy: false, text: "✗ Analyse impossible." });
+    } catch {
+      setScan({ busy: false, text: "✗ Analyse impossible (serveur injoignable)." });
+    }
+  };
   const desktop = payload.desktop;
   const ai = payload.ai;
   const home = payload.home;
@@ -427,6 +447,18 @@ export default function InstallTab({ payload, canInstall, onInstall, pcControl, 
           </button>
         </Card>
       )}
+
+      <Card title="Sécurité du système (Premium, version PC)">
+        <p className="mb-3 text-xs leading-relaxed text-slate-400">
+          Analyse PowerShell native : processus actifs exécutés depuis des dossiers à risque (Temp, Téléchargements…)
+          et entrées de démarrage suspectes du registre. Rien n&apos;est supprimé — JARVIS vous rapporte, vous décidez.
+          À la voix aussi : « Jarvis, lance un scan antivirus ».
+        </p>
+        <button type="button" className="hud-btn" onClick={() => void runScan()} disabled={scan.busy || !payload.settings.premiumActive}>
+          <ShieldAlert size={14} /> {scan.busy ? "Analyse en cours…" : "Lancer un scan antivirus"}
+        </button>
+        {scan.text && <p className="mt-2 text-xs text-slate-300">{scan.text}</p>}
+      </Card>
 
       {!desktop.enabled && (
         <div className="flex items-start gap-3 rounded-2xl border border-hud/20 bg-black/30 p-4 text-xs leading-relaxed text-slate-400">

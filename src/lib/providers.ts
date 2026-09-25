@@ -8,6 +8,7 @@ export type ProviderId =
   | "mistral"
   | "openrouter"
   | "deepseek"
+  | "xai"
   | "ollama"
   | "custom";
 
@@ -96,6 +97,16 @@ export const PROVIDERS: ProviderInfo[] = [
     envKeys: ["DEEPSEEK_API_KEY"],
     needsKey: true,
     keyUrl: "https://platform.deepseek.com/api_keys",
+  },
+  {
+    id: "xai",
+    label: "Grok (xAI)",
+    description: "Les modèles Grok d'xAI (payant).",
+    baseUrl: "https://api.x.ai/v1",
+    defaultModel: "grok-4-fast",
+    envKeys: ["XAI_API_KEY"],
+    needsKey: true,
+    keyUrl: "https://console.x.ai",
   },
   {
     id: "ollama",

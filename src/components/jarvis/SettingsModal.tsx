@@ -46,7 +46,7 @@ const TABS: { id: SettingsTab; label: string; icon: ReactNode }[] = [
 ];
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
-const NO_SECRETS = { sttApiKey: "", haToken: "" };
+const NO_SECRETS = { sttApiKey: "", haToken: "", serpApiKey: "", elevenKey: "" };
 
 export default function SettingsModal({ payload, voices, canInstall, initialTab, onInstall, onClose, onSaved, onTestVoice, onMicNeeded, onMicRelease, onClearData, onQuit }: Props) {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
@@ -92,7 +92,7 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
     }
   };
 
-  const clearSecret = (flag: "clearSttKey" | "clearHaToken") => void put({ [flag]: true }).catch(() => null);
+  const clearSecret = (flag: "clearSttKey" | "clearHaToken" | "clearSerpKey" | "clearElevenKey") => void put({ [flag]: true }).catch(() => null);
   const clearAiKey = (id: string) => void put({ clearAiKey: id }).catch(() => null);
 
   const runTest = async (setState: (s: TestState) => void, url: string, body?: unknown) => {
@@ -161,6 +161,7 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
               form={form}
               set={set}
               desktop={payload.desktop.enabled}
+              premium={payload.settings.premiumActive}
               onPreview={(text) => onTestVoice({ voiceName: form.voiceName, rate: form.voiceRate, pitch: form.voicePitch, text })}
               onClearData={onClearData}
             />
@@ -174,6 +175,9 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
               sttKey={secrets.sttApiKey}
               setSttKey={(v) => setSecret("sttApiKey", v)}
               onClearSttKey={() => clearSecret("clearSttKey")}
+              elevenKey={secrets.elevenKey}
+              setElevenKey={(v) => setSecret("elevenKey", v)}
+              onClearElevenKey={() => clearSecret("clearElevenKey")}
               onTestVoice={onTestVoice}
               onMicNeeded={onMicNeeded}
               onMicRelease={onMicRelease}
@@ -186,6 +190,9 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
               set={set}
               payload={payload}
               keyDrafts={aiKeyDrafts}
+              serpKey={secrets.serpApiKey}
+              setSerpKey={(v) => setSecret("serpApiKey", v)}
+              onClearSerpKey={() => clearSecret("clearSerpKey")}
               setKeyDraft={setKeyDraft}
               onClearKey={clearAiKey}
               onProviderChange={(id) => {

@@ -18,6 +18,9 @@ interface Props {
   sttKey: string;
   setSttKey: (v: string) => void;
   onClearSttKey: () => void;
+  elevenKey: string;
+  setElevenKey: (v: string) => void;
+  onClearElevenKey: () => void;
   onTestVoice: (opts: { voiceName: string; rate: number; pitch: number }) => void;
   onBootMusicChanged: () => Promise<void>;
   onMicNeeded: () => void;
@@ -32,7 +35,7 @@ const ENGINES = [
 
 const ORIGIN: Record<string, string> = { settings: "clé dédiée", ai: "clé de l'IA", env: "clé système" };
 
-export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey, onClearSttKey, onTestVoice, onBootMusicChanged, onMicNeeded, onMicRelease }: Props) {
+export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey, onClearSttKey, elevenKey, setElevenKey, onClearElevenKey, onTestVoice, onBootMusicChanged, onMicNeeded, onMicRelease }: Props) {
   const s = payload.settings;
   const frVoices = useMemo(() => voices.filter((v) => v.lang?.toLowerCase().startsWith("fr")), [voices]);
   const otherVoices = useMemo(() => voices.filter((v) => !v.lang?.toLowerCase().startsWith("fr")), [voices]);
@@ -277,6 +280,45 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
 
       <Card title="Diagnostic du micro">
         <MicDiagnostic sttAvailable={payload.stt.available} onUseWhisper={() => set("sttEngine", "whisper")} />
+      </Card>
+
+      <Card title="Voix HD ElevenLabs (Premium)">
+        <p className="mb-3 text-xs leading-relaxed text-slate-400">
+          {s.premiumActive ? "Voix ultra-réalistes pour les réponses de JARVIS." : "Réservé à l'édition Premium : voix ultra-réalistes pour les réponses de JARVIS."} Clé sur{" "}
+          <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noreferrer" className="text-hud underline">
+            elevenlabs.io
+          </a>{" "}
+          (offre gratuite : 10 000 caractères par mois). La clé reste sur votre PC.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            className="hud-field flex-1 min-w-52"
+            value={elevenKey}
+            placeholder={s.hasElevenKey ? `Clé enregistrée (${s.elevenKeyPreview})` : "Clé ElevenLabs"}
+            onChange={(e) => setElevenKey(e.target.value)}
+          />
+          {s.hasElevenKey && (
+            <button type="button" className="hud-btn" onClick={onClearElevenKey}>
+              <Trash2 size={13} /> Retirer
+            </button>
+          )}
+        </div>
+        <Toggle
+          checked={form.elevenOn}
+          onChange={(v) => set("elevenOn", v)}
+          disabled={!s.premiumActive || !s.hasElevenKey}
+          label="Répondre avec la voix HD ElevenLabs"
+          desc={
+            !s.premiumActive
+              ? "Réservé à l'édition Premium."
+              : !s.hasElevenKey
+                ? "Ajoutez d'abord votre clé ElevenLabs."
+                : "Les réponses de JARVIS sont synthétisées par ElevenLabs (multilingue, très naturel) au lieu des voix du système. Enregistrez pour appliquer."
+          }
+        />
+        <Field label="Voix ElevenLabs (identifiant, facultatif)" hint="Vide = première voix de votre compte. Collez un voice_id depuis la bibliothèque ElevenLabs pour en choisir une précise.">
+          <input className="hud-field" value={form.elevenVoiceId} placeholder="Ex : pFZPzY9k7TKf8p2yvG1B" disabled={!s.premiumActive} onChange={(e) => set("elevenVoiceId", e.target.value)} />
+        </Field>
       </Card>
 
       <Card title="Voix de JARVIS">

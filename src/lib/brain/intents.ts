@@ -16,6 +16,9 @@ import { haConfig } from "./home-assistant";
 import { hasPremium } from "@/lib/premium";
 import { resolveSTT } from "./stt";
 import { favoritesOf, isTitle, updateSettings, type SettingsRow } from "./settings";
+import { googleSearch, serpKeyOf } from "./serpapi";
+import { appendNote, recentNotes, vaultOf } from "./obsidian";
+import { runSecurityScan, scanSummary } from "./security";
 import { findSite, SEARCH } from "./sites";
 import { getServerStats } from "./system";
 import {
@@ -920,6 +923,30 @@ export const INTENTS: Intent[] = [
     },
   },
   {
+    // ─── Coffre Obsidian (Premium, version PC) ────────────────────────────
+    // Placée avant la mémoire : « note dans Obsidian… » ne doit pas filer vers « retiens… ».
+    name: "obsidian",
+    run: async (c) => {
+      const wm = /^\s*(?:note|ecris|ecrivez|inscris|inscrire|ajoute|ajouter|enregistre|enregistrer)\s+(?:ca\s+)?(?:dans|a|sur)\s+(?:mon\s+|ma\s+|mes\s+)?(?:coffre(?:\s+obsidian)?|notes?(?:\s+obsidian)?|obsidian|vault)\s*(?::|que|qu)?\s*(.+)$/.exec(c.f);
+      if (!wm) {
+        const rm = /^\s*(?:relis|relit|lis|lit|consulte|montre(?:\s+moi)?|qu est ce qu il y a)\s+(?:dans\s+)?(?:mon\s+|ma\s+|mes\s+)?(?:coffre(?:\s+obsidian)?|obsidian|vault)\s*$/.test(c.f)
+          || /^\s*(?:mes\s+)?dernieres?\s+notes?\s+obsidian\s*$/.test(c.f);
+        if (!rm) return null;
+        if (!hasPremium(c.s) || !vaultOf(c.s)) return say(`Le coffre Obsidian est réservé à l'édition Premium — renseignez son dossier dans Paramètres → Profil, ${c.sir}.`, { actions: [R_SETTINGS] });
+        const r = await recentNotes(c.s);
+        if (!r.ok || !r.entries.length)
+          return say(`Aucune note dans le coffre pour l'instant, ${c.sir}. Dites « note dans Obsidian… » pour en ajouter une.`);
+        return say(`Voici vos ${r.entries.length} dernière${r.entries.length > 1 ? "s" : ""} note${r.entries.length > 1 ? "s" : ""} : ${r.entries.join(" ; ")}`);
+      }
+      const note = grab(c, wm, 1);
+      if (!note) return null;
+      if (!hasPremium(c.s) || !vaultOf(c.s)) return say(`Le coffre Obsidian est réservé à l'édition Premium — renseignez son dossier dans Paramètres → Profil, ${c.sir}.`, { actions: [R_SETTINGS] });
+      const r = await appendNote(c.s, note);
+      if (!r.ok) return say(`Je n'ai pas pu écrire dans le coffre : ${r.error ?? "erreur inconnue"}. Vérifiez le dossier dans Paramètres → Profil, ${c.sir}.`);
+      return say(`C'est noté dans votre coffre Obsidian, ${c.sir}.`);
+    },
+  },
+  {
     name: "memory-forget",
     run: async (c) => {
       if (/(oublie tout|efface (toute )?ta memoire|vide ta memoire|reinitialise ta memoire|supprime (tous )?tes souvenirs|efface tes souvenirs|oublie tout ce que (je t ai dit|tu sais))/.test(c.f)) {
@@ -1040,6 +1067,23 @@ export const INTENTS: Intent[] = [
         source: "news",
         cards: [{ kind: "news", source: news.source, items: news.items.slice(0, 8) }],
       });
+    },
+  },
+  {
+    // ─── Scan de sécurité (Premium, version PC) ───────────────────────────
+    name: "security",
+    run: async (c) => {
+      const f = c.f;
+      const scanIt =
+        (/antivirus|virus|malware|logiciels malveillants|menaces?/.test(f) && /\b(scan|scannes?|analyse|verifie|cherche|lance|detecte|fais)\b/.test(f))
+        || /^\s*(?:scanne|scan|analyse|verifie|controle|diagnostique)\s+(?:mon\s+|le\s+|la\s+|ma\s+)?(?:pc|ordinateur|ordi|systeme|securite)\s*$/.test(f);
+      if (!scanIt) return null;
+      if (!hasPremium(c.s)) return say(`Le scan de sécurité est réservé à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+      const r = await runSecurityScan();
+      if (!r) return say(`L'analyse exige la version PC installée, ${c.sir}.`);
+      const base = scanSummary(r);
+      const suspicious = r.ok ? r.processes.concat(r.startups) : [];
+      return say(`${base}${suspicious.length ? ` ${suspicious.length} élément(s) listé(s) : ${suspicious.slice(0, 4).map((x) => x.split("|")[0]).join(", ")}…` : ""}`, { source: r.ok ? "system" : undefined });
     },
   },
   {
@@ -1179,6 +1223,29 @@ export const INTENTS: Intent[] = [
         spotify: ["Spotify", SEARCH.spotify(q)],
       };
       const [label, url] = map[platform] ?? ["Google", SEARCH.google(q)];
+      // SerpAPI (si la clé est enregistrée) : JARVIS lit les résultats à voix haute.
+      const serpKey = serpKeyOf(c.s);
+      if (!map[platform] && serpKey) {
+        const serp = await googleSearch(q, serpKey);
+        if (serp && (serp.answer || serp.results.length)) {
+          const parts: string[] = [];
+          if (serp.answer) parts.push(serp.answer);
+          for (const [i, r] of serp.results.slice(0, 3).entries()) {
+            parts.push(serp.answer && i === 0 ? "Sources :" : "");
+            parts.push(`${r.title}${r.snippet ? ` — ${r.snippet}` : ""}`);
+          }
+          const text = parts.filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 900);
+          return say(
+            `${serp.answer ? "" : `Voici ce que j'ai trouvé sur « ${q} », ${c.sir}. `}${text}`,
+            { source: "web", actions: [{ type: "open", url, label: `Google : ${q}` }] },
+          );
+        }
+        if (serp === null && serpKey)
+          return say(
+            `La recherche Google en direct échoue, ${c.sir} — la clé SerpAPI est peut-être invalide ou expirée. Je lance la page Google à la place.`,
+            { actions: [{ type: "open", url, label: `Google : ${q}` }] },
+          );
+      }
       return say(`Je lance la recherche « ${q} » sur ${label}, ${c.sir}.`, { actions: [{ type: "open", url, label: `${label} : ${q}` }] });
     },
   },

@@ -89,5 +89,11 @@ export const settings = pgTable("settings", {
   haUseAssist: boolean("ha_use_assist").notNull().default(true),
   haAllowSensitive: boolean("ha_allow_sensitive").notNull().default(false),
   haFavorites: text("ha_favorites").notNull().default("[]"),
+  // v1.25 — recherche Google lue par l'IA (SerpAPI), coffre Obsidian, voix HD ElevenLabs, Grok (xAI)
+  serpApiKey: text("serp_api_key").notNull().default(""),
+  obsidianVault: text("obsidian_vault").notNull().default(""),
+  elevenKey: text("eleven_key").notNull().default(""),
+  elevenVoiceId: text("eleven_voice_id").notNull().default(""),
+  elevenOn: boolean("eleven_on").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

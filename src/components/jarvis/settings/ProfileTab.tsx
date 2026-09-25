@@ -9,6 +9,7 @@ interface Props {
   form: SettingsForm;
   set: SetField;
   desktop: boolean;
+  premium: boolean;
   onPreview: (text: string) => void;
   onClearData: (kind: "history" | "memories" | "tasks") => void;
 }
@@ -20,7 +21,7 @@ const CHOICES: { id: AddressChoice; label: string }[] = [
   { id: "custom", label: "Autre…" },
 ];
 
-export default function ProfileTab({ form, set, desktop, onPreview, onClearData }: Props) {
+export default function ProfileTab({ form, set, desktop, premium, onPreview, onClearData }: Props) {
   const choice = addressChoiceOf(form);
   const [custom, setCustom] = useState(choice === "custom" ? form.honorific : "Patron");
   const preview = greetingPreview(form.userName, choice, form.honorific);
@@ -86,6 +87,19 @@ export default function ProfileTab({ form, set, desktop, onPreview, onClearData 
       <Field label="Ville (météo par défaut)">
         <input className="hud-field" value={form.city} placeholder="Paris" onChange={(e) => set("city", e.target.value)} />
       </Field>
+
+      <Card title="Coffre Obsidian (Premium)">
+        <Field
+          label="Dossier du coffre Obsidian"
+          hint={
+            !premium
+              ? "Réservé à l'édition Premium : JARVIS écrit ses notes dans un fichier Markdown (JARVIS.md) de votre coffre Obsidian, à relire sur tous vos appareils."
+              : "Ex : C:\\Users\\Nathan\\Documents\\MonCoffre. Dites « Jarvis, note dans Obsidian : … » pour ajouter une note, « relis mon coffre » pour les entendre. Vide = désactivé."
+          }
+        >
+          <input className="hud-field" value={form.obsidianVault} placeholder="C:\\Users\\Nathan\\Documents\\MonCoffre" disabled={!premium} onChange={(e) => set("obsidianVault", e.target.value)} />
+        </Field>
+      </Card>
 
       <Card title="Données" tone="danger">
         <div className="flex flex-wrap gap-2">

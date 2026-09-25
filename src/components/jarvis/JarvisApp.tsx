@@ -57,7 +57,7 @@ import { recognizeFrame } from "@/lib/client/vision-face";
 import { verifyWav } from "@/lib/client/voice-print";
 import { sfx } from "@/lib/client/sounds";
 import type { ControlProposal } from "@/lib/types";
-import { getVoices, pickVoice, Speaker } from "@/lib/client/speech";
+import { ElevenSpeaker, getVoices, pickVoice, Speaker } from "@/lib/client/speech";
 import { parseYouTubeId, youTubeLabel } from "@/lib/youtube";
 import type { ClientAction, ClientContext, MemoryItem, SettingsPayload, StoredMessage, StreamEvent, TaskItem, ThemeName } from "@/lib/types";
 
@@ -1540,22 +1540,31 @@ export default function JarvisApp() {
   }, [booted, desktopEnabled, payload?.settings.premiumActive]);
 
   // ─── Boot ──────────────────────────────────────────────────────────────
+  /** Crée ou remplace le moteur de parole : voix HD ElevenLabs si activée (Premium). */
+  const makeSpeaker = () => {
+    const useEleven = Boolean(payloadRef.current?.settings.elevenOn && payloadRef.current?.settings.premiumActive);
+    const cur = speakerRef.current;
+    if (cur && cur instanceof ElevenSpeaker === useEleven) return;
+    const sp = useEleven ? new ElevenSpeaker() : new Speaker();
+    sp.setEvents({
+      onStart: () => setStatus((s) => (s === "listening" ? s : "speaking")),
+      onEnd: () => {
+        setStatus((s) => (s === "speaking" ? "idle" : s));
+        fns.current.afterSpeech();
+      },
+      onBoundary: () => {
+        levelRef.current = 0.85;
+      },
+    });
+    speakerRef.current = sp;
+  };
+  useEffect(() => {
+    if (booted) makeSpeaker();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booted, payload?.settings.elevenOn, payload?.settings.premiumActive]);
   const handleInit = () => {
     sfx.unlock();
-    if (!speakerRef.current) {
-      const sp = new Speaker();
-      sp.setEvents({
-        onStart: () => setStatus((s) => (s === "listening" ? s : "speaking")),
-        onEnd: () => {
-          setStatus((s) => (s === "speaking" ? "idle" : s));
-          fns.current.afterSpeech();
-        },
-        onBoundary: () => {
-          levelRef.current = 0.85;
-        },
-      });
-      speakerRef.current = sp;
-    }
+    makeSpeaker();
     void getVoices().then((v) => {
       voicesRef.current = v;
       setVoices(v);

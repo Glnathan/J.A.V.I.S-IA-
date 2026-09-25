@@ -3,6 +3,27 @@
 Historique complet du projet, tenu à jour à chaque version. Ce document est la
 trace de tout le travail accompli, pour s'y retrouver plus tard.
 
+## 1.25.0 — Boîte à outils (SerpAPI, Obsidian, sécurité, Grok, ElevenLabs)
+- Recherche Google lue par l'IA : clé SerpAPI (Paramètres → Intelligence,
+  100 recherches/mois gratuites). « Jarvis, cherche… » répond à voix haute
+  avec les résultats (answer box + sources) au lieu d'un simple onglet.
+- Coffre Obsidian (Premium, version PC) : dossier du coffre dans Paramètres
+  → Profil. « note dans Obsidian… » écrit dans JARVIS.md (Markdown, horodaté),
+  « relis mon coffre » énonce les dernières notes. Route /api/obsidian.
+- Scan de sécurité (Premium, version PC) : « lance un scan antivirus » /
+  « scanne mon PC » — PowerShell natif : processus actifs exécutés depuis
+  Temp/Téléchargements/Public + entrées de démarrage du registre. Rapport
+  parlé, rien de supprimé. Bouton aussi dans Paramètres → Version PC.
+- Grok (xAI) : fournisseur ajouté à la chaîne IA (api.x.ai, modèle par défaut
+  grok-4-fast, clé sur console.x.ai).
+- Voix HD ElevenLabs (Premium) : clé + bascule dans Paramètres → Voix & micro.
+  Synthèse via /api/tts (la clé ne quitte pas le PC, modèle
+  eleven_multilingual_v2). Client : classe ElevenSpeaker (mêmes événements que
+  Speaker, bascule automatique au réglage).
+- Migration drizzle 0009 : colonnes serp_api_key, obsidian_vault, eleven_key,
+  eleven_voice_id, eleven_on. Les clés ne sont jamais exposées au navigateur
+  (aperçus tronqués uniquement).
+- Reporté volontairement : transcription 100% locale (Nemotron ~7 Go).
 ## 1.24.1 — Ouverture native des sites (version PC)
 - « ouvre YouTube » : Chrome bloquait window.open des commandes vocales
   (pop-up sans geste utilisateur). Nouvelle route /api/open : sur la version

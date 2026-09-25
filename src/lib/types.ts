@@ -163,6 +163,16 @@ export interface PublicSettings {
   haUseAssist: boolean;
   haAllowSensitive: boolean;
   haFavorites: string[];
+  /** Clé SerpAPI : recherche Google lue par l'IA. */
+  hasSerpKey: boolean;
+  serpKeyPreview: string;
+  /** Dossier du coffre Obsidian (vide = désactivé). */
+  obsidianVault: string;
+  /** Clé ElevenLabs : voix HD. */
+  hasElevenKey: boolean;
+  elevenKeyPreview: string;
+  elevenVoiceId: string;
+  elevenOn: boolean;
 }
 
 export interface AIStatus {

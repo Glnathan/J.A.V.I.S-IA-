@@ -111,6 +111,34 @@ const voiceGate = bool("voiceGate");
   const sttApiKey = str("sttApiKey", 500);
   if (sttApiKey) patch.sttApiKey = sttApiKey;
   if (body.clearSttKey === true) patch.sttApiKey = "";
+  // v1.25 — SerpAPI (recherche Google lue par l'IA), Obsidian, ElevenLabs (voix HD)
+  const serpApiKey = str("serpApiKey", 500);
+  if (serpApiKey) patch.serpApiKey = serpApiKey;
+  if (body.clearSerpKey === true) patch.serpApiKey = "";
+  const obsidianVault = str("obsidianVault", 400);
+  if (obsidianVault !== undefined) {
+    if (obsidianVault === "") patch.obsidianVault = "";
+    else {
+      const s = await getSettings();
+      if (!hasPremium(s)) return Response.json({ error: "Le coffre Obsidian est réservé à l'édition Premium." }, { status: 403 });
+      patch.obsidianVault = obsidianVault;
+    }
+  }
+  const elevenKey = str("elevenKey", 500);
+  if (elevenKey) patch.elevenKey = elevenKey;
+  if (body.clearElevenKey === true) patch.elevenKey = "";
+  const elevenVoiceId = str("elevenVoiceId", 60);
+  if (elevenVoiceId !== undefined) patch.elevenVoiceId = elevenVoiceId;
+  const elevenOn = bool("elevenOn");
+  if (elevenOn !== undefined) {
+    if (!elevenOn) patch.elevenOn = false;
+    else {
+      const s = await getSettings();
+      if (!s.elevenKey.trim()) return Response.json({ error: "Ajoutez d'abord une clé ElevenLabs." }, { status: 400 });
+      if (!hasPremium(s)) return Response.json({ error: "La voix HD ElevenLabs est réservée à l'édition Premium." }, { status: 403 });
+      patch.elevenOn = true;
+    }
+  }
   const desktopBrowser = oneOf("desktopBrowser", ["auto", "chrome", "edge"] as const);
   if (desktopBrowser) patch.desktopBrowser = desktopBrowser;
   const bootMusic = oneOf("bootMusic", ["youtube", "theme", "custom", "off"] as const);

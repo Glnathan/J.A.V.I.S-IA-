@@ -19,6 +19,9 @@ interface Props {
   keyDrafts: Record<string, string>;
   setKeyDraft: (id: string, v: string) => void;
   onClearKey: (id: string) => void;
+  serpKey: string;
+  setSerpKey: (v: string) => void;
+  onClearSerpKey: () => void;
   onProviderChange: (id: string) => void;
   onTest: () => void;
   test: TestState;
@@ -53,7 +56,7 @@ const KEY_CARDS: { id: string; chip: string; tag: string; free: boolean; title: 
   },
 ];
 
-export default function AITab({ form, set, payload, keyDrafts, setKeyDraft, onClearKey, onProviderChange, onTest, test, saving }: Props) {
+export default function AITab({ form, set, payload, keyDrafts, setKeyDraft, onClearKey, serpKey, setSerpKey, onClearSerpKey, onProviderChange, onTest, test, saving }: Props) {
   const s = payload.settings;
   const provider = getProvider(form.aiProvider);
   const envHasKey = provider ? payload.envProviders.includes(provider.id) : false;
@@ -214,6 +217,31 @@ export default function AITab({ form, set, payload, keyDrafts, setKeyDraft, onCl
           {test.message}
         </div>
       )}
+
+      <div className="rounded border border-hud/20 bg-hud/5 p-4">
+        <div className="label mb-2">Recherche Google en direct (SerpAPI)</div>
+        <p className="mb-3 text-xs leading-relaxed text-slate-400">
+          Avec une clé SerpAPI (100 recherches gratuites par mois), « Jarvis, cherche… » répond à voix haute avec les
+          résultats de Google au lieu d&apos;ouvrir un simple onglet. Clé sur{" "}
+          <a href="https://serpapi.com/manage-api-key" target="_blank" rel="noreferrer" className="text-hud underline">
+            serpapi.com
+          </a>
+          .
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            className="hud-field flex-1 min-w-52"
+            value={serpKey}
+            placeholder={payload.settings.hasSerpKey ? `Clé enregistrée (${payload.settings.serpKeyPreview})` : "Clé SerpAPI"}
+            onChange={(e) => setSerpKey(e.target.value)}
+          />
+          {payload.settings.hasSerpKey && (
+            <button type="button" className="hud-btn" onClick={onClearSerpKey}>
+              <Trash2 size={13} /> Retirer
+            </button>
+          )}
+        </div>
+      </div>
 
       {!payload.ai.active && (
         <div className="rounded border border-hud/20 bg-hud/5 p-4 text-sm leading-relaxed text-slate-300">

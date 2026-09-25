@@ -192,5 +192,12 @@ export function toPublicSettings(s: SettingsRow): PublicSettings {
     haUseAssist: s.haUseAssist,
     haAllowSensitive: s.haAllowSensitive,
     haFavorites: parseList(s.haFavorites),
+    hasSerpKey: s.serpApiKey.trim().length > 0,
+    serpKeyPreview: preview(s.serpApiKey),
+    obsidianVault: s.obsidianVault,
+    hasElevenKey: s.elevenKey.trim().length > 0,
+    elevenKeyPreview: preview(s.elevenKey),
+    elevenVoiceId: s.elevenVoiceId,
+    elevenOn: s.elevenOn,
   };
 }

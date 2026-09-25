@@ -285,6 +285,9 @@ export default function PremiumTab({ payload, onSaved }: Props) {
           <li>Prise de contrôle de l&apos;écran : « Jarvis, clique sur… » — il voit, propose, et agit après votre confirmation</li>
           <li>Conversation libre : « Jarvis, parlons » puis parlez sans mot d&apos;activation — votre voix seule est écoutée</li>
           <li>Mot d&apos;activation personnalisé : « Jarvis, réponds à Vendredi » — appelez-moi comme vous voulez</li>
+          <li>Coffre Obsidian : « Jarvis, note dans Obsidian… » — vos notes Markdown, sur tous vos appareils</li>
+          <li>Scan de sécurité : « Jarvis, lance un scan antivirus » — processus et démarrage analysés, rapport parlé</li>
+          <li>Voix HD ElevenLabs : des réponses d&apos;un réalisme studio</li>
           <li>Apparences exclusives : « mode nanotech », « mode Ultron », « mode furtif »</li>
           <li>Sauvegarde quotidienne automatique, restauration en un clic</li>
           <li>Journal des connexions distantes (Paramètres → Mobile)</li>

@@ -115,9 +115,9 @@ export interface SpeakerEvents {
 }
 
 export class Speaker {
-  private active = new Set<SpeechSynthesisUtterance>();
-  private timers = new Map<SpeechSynthesisUtterance, ReturnType<typeof setTimeout>>();
-  private events: SpeakerEvents = {};
+  protected active = new Set<SpeechSynthesisUtterance>();
+  protected timers = new Map<SpeechSynthesisUtterance, ReturnType<typeof setTimeout>>();
+  protected events: SpeakerEvents = {};
 
   setEvents(e: SpeakerEvents) {
     this.events = e;
@@ -173,6 +173,68 @@ export class Speaker {
     this.active.clear();
     this.timers.forEach((t) => clearTimeout(t));
     this.timers.clear();
+    if (speechSupported()) window.speechSynthesis.cancel();
+    if (was) this.events.onEnd?.();
+  }
+}
+
+/**
+ * Voix HD ElevenLabs (Premium) : le texte part au serveur JARVIS qui le
+ * transforme en audio via la clé enregistrée (jamais exposée au navigateur).
+ * Même interface que Speaker — remplacement direct.
+ */
+export class ElevenSpeaker extends Speaker {
+  private audios = new Set<HTMLAudioElement>();
+  private pending = 0;
+  private token = 0;
+
+  override get speaking(): boolean {
+    return this.audios.size > 0 || this.pending > 0;
+  }
+
+  /** Fin d'écoute : plus aucun audio ni requête en vol. */
+  private checkDone(): void {
+    if (this.pending === 0 && this.audios.size === 0) this.events.onEnd?.();
+  }
+
+  override speak(text: string): void {
+    const clean = cleanForSpeech(text).slice(0, 2000);
+    if (!clean) return;
+    this.token++;
+    const mine = this.token;
+    this.pending++;
+    this.events.onStart?.();
+    fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: clean }) })
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((blob) => {
+        this.pending--;
+        if (!blob || mine !== this.token) {
+          this.checkDone();
+          return;
+        }
+        const a = new Audio(URL.createObjectURL(blob));
+        a.onended = () => this.doneAudio(a);
+        a.onerror = () => this.doneAudio(a);
+        this.audios.add(a);
+        void a.play().catch(() => this.doneAudio(a));
+      })
+      .catch(() => {
+        this.pending--;
+        this.checkDone();
+      });
+  }
+
+  private doneAudio(a: HTMLAudioElement) {
+    this.audios.delete(a);
+    this.checkDone();
+  }
+
+  override cancel(): void {
+    const was = this.speaking;
+    this.token++;
+    this.pending = 0;
+    this.audios.forEach((a) => a.pause());
+    this.audios.clear();
     if (speechSupported()) window.speechSynthesis.cancel();
     if (was) this.events.onEnd?.();
   }
