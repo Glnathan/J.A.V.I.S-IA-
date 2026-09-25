@@ -1,7 +1,7 @@
 "use client";
 
-import { CheckCircle2, Crown, Download, ExternalLink, Loader2, RefreshCw, XCircle } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, Crown, Database, Download, ExternalLink, HardDriveDownload, Loader2, RefreshCw, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { SettingsPayload } from "@/lib/types";
 
 interface UpdateCheck {
@@ -10,6 +10,12 @@ interface UpdateCheck {
   url: string | null;
   downloadUrl: string | null;
   notes: string | null;
+}
+
+interface BackupInfo {
+  id: string;
+  createdAt: number;
+  size: number;
 }
 
 interface Props {
@@ -60,6 +66,64 @@ export default function PremiumTab({ payload, onSaved }: Props) {
       setBusy(null);
     }
   };
+
+  // ─── Sauvegardes (Premium) ─────────────────────────────────────────────
+  const [backups, setBackups] = useState<BackupInfo[] | null>(null);
+  const loadBackups = async () => {
+    try {
+      const r = await fetch("/api/backup", { cache: "no-store" });
+      if (r.ok) setBackups(((await r.json()) as { backups: BackupInfo[] }).backups);
+    } catch {
+      /* recharge à la prochaine ouverture */
+    }
+  };
+  useEffect(() => {
+    void loadBackups();
+  }, []);
+
+  const backupNow = async () => {
+    setBusy("backup");
+    setMsg(null);
+    try {
+      const r = await fetch("/api/backup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "create" }) });
+      const j = (await r.json().catch(() => ({}))) as BackupInfo & { error?: string };
+      if (!r.ok || j.error) {
+        setMsg({ ok: false, text: j.error ?? "Sauvegarde impossible." });
+      } else {
+        setMsg({ ok: true, text: `Sauvegarde ${j.id} créée.` });
+        void loadBackups();
+      }
+    } catch {
+      setMsg({ ok: false, text: "Le serveur ne répond pas." });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const restore = async (id: string) => {
+    if (!window.confirm(`Restaurer la sauvegarde ${id} ?\nJ.A.R.V.I.S. redémarrera pour l'appliquer ; les données actuelles seront remplacées.`)) return;
+    setBusy(`restore-${id}`);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/backup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "restore", id }) });
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!r.ok || j.error) {
+        setMsg({ ok: false, text: j.error ?? "Restauration impossible." });
+        setBusy(null);
+        return;
+      }
+      setMsg({ ok: true, text: "Restauration préparée. J.A.R.V.I.S. redémarre pour l'appliquer." });
+      setTimeout(() => {
+        void fetch("/api/desktop/quit", { method: "POST" }).catch(() => undefined);
+      }, 2000);
+    } catch {
+      setMsg({ ok: false, text: "Le serveur ne répond pas." });
+      setBusy(null);
+    }
+  };
+
+  const fmtSize = (bytes: number) => (bytes >= 1073741824 ? `${(bytes / 1073741824).toFixed(1)} Go` : `${(bytes / 1048576).toFixed(1)} Mo`);
+  const fmtDate = (ms: number) => new Date(ms).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 
   const install = async () => {
     setBusy("install");
@@ -162,11 +226,56 @@ export default function PremiumTab({ payload, onSaved }: Props) {
         )}
       </div>
 
+      <div className="space-y-3 rounded border border-hud/15 bg-black/20 p-4">
+        <div className="flex items-center justify-between">
+          <div className="label flex items-center gap-2">
+            <Database size={12} /> Sauvegardes
+          </div>
+          {premium && (
+            <button type="button" className="hud-btn !h-7" onClick={() => void backupNow()} disabled={busy !== null}>
+              {busy === "backup" ? <Loader2 size={12} className="animate-spin" /> : <HardDriveDownload size={12} />} Sauvegarder maintenant
+            </button>
+          )}
+        </div>
+        <p className="text-xs leading-relaxed text-slate-400">
+          {premium
+            ? "Vos données (mémoire, tâches, conversations, réglages) sont sauvegardées automatiquement chaque jour — les 7 dernières versions sont conservées."
+            : "Sauvegarde quotidienne automatique et restauration en un clic : réservées à l'édition Premium."}
+        </p>
+        {premium && backups !== null && (
+          <div className="space-y-1">
+            {backups.length === 0 ? (
+              <p className="font-mono text-xs text-slate-500">Aucune sauvegarde pour l&apos;instant — la première aura lieu aujourd&apos;hui.</p>
+            ) : (
+              <ul className="max-h-44 space-y-1 overflow-y-auto scroll-hud">
+                {backups.map((b) => (
+                  <li key={b.id} className="flex items-center gap-2 rounded border border-hud/10 bg-black/20 px-2 py-1.5 text-xs">
+                    <span className="min-w-0 flex-1 truncate font-mono text-slate-300">
+                      {fmtDate(b.createdAt)} <span className="text-slate-500">· {fmtSize(b.size)}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="hud-btn !h-6 shrink-0 !text-[10px]"
+                      onClick={() => void restore(b.id)}
+                      disabled={busy !== null}
+                    >
+                      {busy === `restore-${b.id}` ? <Loader2 size={10} className="animate-spin" /> : null} Restaurer
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="rounded border border-hud/15 bg-black/20 p-4 text-xs leading-relaxed text-slate-400">
         <div className="label mb-2">Inclus dans Premium</div>
         <ul className="list-disc space-y-1 pl-4">
-          <li>Mises à jour automatiques dès leur publication (installation silencieuse au démarrage)</li>
-          <li>Installation en un clic depuis cet onglet</li>
+          <li>Mises à jour automatiques dès leur publication (installation silencieuse, sans clic)</li>
+          <li>Apparences exclusives : « mode nanotech », « mode Ultron », « mode furtif »</li>
+          <li>Sauvegarde quotidienne automatique, restauration en un clic</li>
+          <li>Journal des connexions distantes (Paramètres → Mobile)</li>
           <li>Les services Premium à venir, inclus à vie</li>
         </ul>
       </div>

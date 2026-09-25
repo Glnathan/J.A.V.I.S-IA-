@@ -54,6 +54,12 @@ PostgreSQL / PGlite · plugins Python (pont JSON sur stdin/stdout) · NSIS pour 
 - `src/instrumentation.ts` : au démarrage de la version PC, initialise PGlite + migrations + arrêt automatique en cas d'inactivité
 - `src/proxy.ts` : version PC seulement, refuse les requêtes d'autres sites (protection du serveur local)
 - `src/lib/runtime.ts` : chemins et mode d'exécution (`isDesktop()`, `dataDir()`, `pluginsDir()`…) — ne jamais coder un chemin en dur
+- Éditions Standard / Premium (`src/lib/premium.ts`, clé hors ligne `JARVIS-XXXXX-XXXXX-XX`) : mises à jour automatiques
+  (serveur au démarrage + interface toutes les 6 h), apparences exclusives (intention « modes » de `intents.ts`, thèmes
+  `nanotech`/`ultron`/`stealth`), sauvegardes (`src/lib/backup.ts` + `/api/backup` : quotidienne via `instrumentation.ts`,
+  restauration par script `restaurer-jarvis.cmd`), journal des connexions distantes (`src/lib/access-log.ts` +
+  `/api/remote/journal`, alimenté par `/api/remote/login`). Générateur de clés du vendeur : `generer-cle.bat` →
+  `scripts/generer-cle.mjs` (registre local `cles-vendues.csv`, ignoré par Git).
 - `desktop/` : lanceur Node et scripts NSIS · `scripts/build-desktop.mjs` : fabrication de l'installateur
 - `plugins/` : plugins Python d'exemple (copiés dans `%USERPROFILE%\JARVIS\plugins` au premier lancement du PC)
 

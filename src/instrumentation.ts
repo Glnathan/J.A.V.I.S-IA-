@@ -36,6 +36,31 @@ export async function register() {
     const { startIdleWatchdog } = await import("./lib/desktop/watchdog");
     startIdleWatchdog();
 
+    // Édition Premium : sauvegarde quotidienne automatique du dossier de données.
+    if (!g.__jarvisDbError) {
+      try {
+        const { getSettings } = await import("./lib/brain/settings");
+        const { hasPremium } = await import("./lib/premium");
+        const { createBackup, listBackups } = await import("./lib/backup");
+        const DAILY_MS = 24 * 3600 * 1000;
+        const autoBackup = async () => {
+          try {
+            if (!hasPremium(await getSettings())) return;
+            const last = listBackups()[0]?.createdAt ?? 0;
+            if (Date.now() - last < DAILY_MS) return;
+            console.log(`[jarvis] Sauvegarde Premium automatique : ${createBackup().id}`);
+          } catch (e) {
+            console.error("[jarvis] Sauvegarde automatique :", e);
+          }
+        };
+        const backupTimer = setInterval(() => void autoBackup(), 3600 * 1000);
+        backupTimer.unref?.();
+        void autoBackup();
+      } catch (e) {
+        console.error("[jarvis] Planification des sauvegardes :", e);
+      }
+    }
+
     // Édition Premium : mise à jour automatique dès qu'une release est publiée (installation silencieuse au démarrage).
     if (!g.__jarvisDbError) {
       try {

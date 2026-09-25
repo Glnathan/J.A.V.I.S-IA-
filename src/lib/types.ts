@@ -1,6 +1,6 @@
 // Shared types between server (API routes / brain) and client (HUD).
 
-export type ThemeName = "cyan" | "red" | "gold" | "green" | "party" | "gaming";
+export type ThemeName = "cyan" | "red" | "gold" | "green" | "party" | "gaming" | "nanotech" | "ultron" | "stealth";
 
 export type ClientAction =
   | { type: "open"; url: string; label: string }

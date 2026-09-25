@@ -35,6 +35,22 @@
   --hud2: #ff2d78;
   --hud-rgb: 176 38 255;
 }
+/* Thèmes exclusifs de l'édition Premium */
+:root[data-theme="nanotech"] {
+  --hud: #7dd3fc;
+  --hud2: #e0f2fe;
+  --hud-rgb: 125 211 252;
+}
+:root[data-theme="ultron"] {
+  --hud: #ff3b30;
+  --hud2: #ff9500;
+  --hud-rgb: 255 59 48;
+}
+:root[data-theme="stealth"] {
+  --hud: #cbd5e1;
+  --hud2: #64748b;
+  --hud-rgb: 203 213 225;
+}
 :root[data-theme="party"] .party-fx {
   animation: party-hue 2.5s linear infinite;
 }

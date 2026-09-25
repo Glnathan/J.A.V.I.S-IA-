@@ -1,4 +1,5 @@
 import { COOKIE, readRemoteConfig, signSession, verifyPin } from "@/lib/remote-config";
+import { logAccess } from "@/lib/access-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +10,10 @@ const WINDOW = 10 * 60000;
 
 function clientKey(req: Request): string {
   return (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || req.headers.get("host") || "?";
+}
+
+function deviceOf(req: Request): string {
+  return (req.headers.get("user-agent") ?? "").replace(/[^\w .:/()-]/g, "").slice(0, 80) || "appareil inconnu";
 }
 
 function isSecure(req: Request): boolean {
@@ -22,6 +27,7 @@ export async function POST(req: Request) {
   const now = Date.now();
   const a = attempts.get(key);
   if (a && a.count >= MAX && a.until > now) {
+    logAccess({ ok: false, ip: key, device: `${deviceOf(req)} (bloqué)` });
     return Response.json({ error: `Trop de tentatives. Réessayez dans ${Math.ceil((a.until - now) / 60000)} min.` }, { status: 429 });
   }
   const body = (await req.json().catch(() => ({}))) as { pin?: unknown };
@@ -35,9 +41,11 @@ export async function POST(req: Request) {
     cur.until = now + WINDOW;
     attempts.set(key, cur);
     await new Promise((r) => setTimeout(r, 600));
+    logAccess({ ok: false, ip: key, device: deviceOf(req) });
     return Response.json({ error: `Code incorrect (${Math.max(0, MAX - cur.count)} essai${MAX - cur.count > 1 ? "s" : ""} restant${MAX - cur.count > 1 ? "s" : ""}).` }, { status: 401 });
   }
   attempts.delete(key);
+  logAccess({ ok: true, ip: key, device: deviceOf(req) });
   const { token, maxAge } = signSession(cfg);
   const cookie = `${COOKIE}=${token}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${isSecure(req) ? "; Secure" : ""}`;
   return Response.json({ ok: true }, { headers: { "Set-Cookie": cookie } });

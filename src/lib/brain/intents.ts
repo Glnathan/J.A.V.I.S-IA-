@@ -13,6 +13,7 @@ import { issNow } from "@/lib/satellites";
 import { planetDistance, planetPosition, moonPosition } from "@/lib/solar";
 import { handleHome, looksLikeHomeCommand } from "./home-intent";
 import { haConfig } from "./home-assistant";
+import { hasPremium } from "@/lib/premium";
 import { favoritesOf, isTitle, updateSettings, type SettingsRow } from "./settings";
 import { findSite, SEARCH } from "./sites";
 import { getServerStats } from "./system";
@@ -297,6 +298,22 @@ export const INTENTS: Intent[] = [
         return say(`Protocole fête activé. Que la fête commence, ${c.sir} !`, { actions: [{ type: "theme", theme: "party", duration: 30000 }, { type: "sound", name: "party" }] });
       if (/(alerte rouge|mode (alerte|rouge|combat|urgence|defense)|protocole (alerte|rouge|urgence|combat|defense))/.test(f))
         return say(`Protocole d'alerte activé. Tous les systèmes défensifs sont en état d'alerte maximale, ${c.sir}.`, { actions: [{ type: "theme", theme: "red" }, { type: "sound", name: "alert" }] });
+      // Apparences exclusives de l'édition Premium (verrouillées côté serveur).
+      if (/(mode|theme|protocole|couleur|passe en|passe au|interface)\s+(nanotech|nano tech|bleu clair|bleu blanc)\b/.test(f)) {
+        if (!hasPremium(c.s))
+          return say(`L'apparence nanotech est réservée à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+        return say(`Apparence nanotech activée. Bleu de conception Stark, ${c.sir}.`, { actions: [{ type: "theme", theme: "nanotech" }, { type: "sound", name: "success" }] });
+      }
+      if (/(mode|theme|protocole|couleur|passe en|passe au|interface)\s+(ultron)\b/.test(f)) {
+        if (!hasPremium(c.s))
+          return say(`L'apparence Ultron est réservée à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+        return say(`Apparence Ultron activée. Il n'y a pas de cordes sur moi, ${c.sir}.`, { actions: [{ type: "theme", theme: "ultron" }, { type: "sound", name: "success" }] });
+      }
+      if (/(mode|theme|protocole|couleur|passe en|passe au|interface)\s+(stealth|furtif|furtive|argent(e)?)\b/.test(f)) {
+        if (!hasPremium(c.s))
+          return say(`L'apparence furtive est réservée à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+        return say(`Apparence furtive activée. Mode discret, ${c.sir}.`, { actions: [{ type: "theme", theme: "stealth" }, { type: "sound", name: "success" }] });
+      }
       if (/(mode|theme|protocole|couleur|passe en|passe au|interface)\s+(or|dore|gold|iron man|mark|stark|rouge et or)\b/.test(f))
         return say(`Thème Mark activé. Rouge et or, comme il se doit, ${c.sir}.`, { actions: [{ type: "theme", theme: "gold" }, { type: "sound", name: "success" }] });
       if (/(mode|theme|couleur|passe en|passe au|interface)\s+(vert|verte|hulk)\b/.test(f))

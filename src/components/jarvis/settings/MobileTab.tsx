@@ -1,10 +1,17 @@
 "use client";
 
-import { CheckCircle2, ExternalLink, KeyRound, Loader2, RefreshCw, Smartphone, Wifi, XCircle } from "lucide-react";
+import { CheckCircle2, ExternalLink, KeyRound, Loader2, Lock, RefreshCw, Smartphone, Wifi, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { RemotePayload } from "@/app/api/remote/route";
 import type { SettingsPayload } from "@/lib/types";
 import { Code } from "./ui";
+
+interface AccessEntry {
+  at: number;
+  ok: boolean;
+  ip: string;
+  device: string;
+}
 
 interface Props {
   payload: SettingsPayload;
@@ -76,6 +83,26 @@ export default function MobileTab({ payload }: Props) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Journal des connexions distantes (Premium) — verrouillé en édition Standard.
+  const premium = payload.settings.premiumActive;
+  const [journal, setJournal] = useState<AccessEntry[] | "locked" | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const r = await fetch("/api/remote/journal", { cache: "no-store" });
+        if (!alive) return;
+        if (r.status === 403) setJournal("locked");
+        else if (r.ok) setJournal(((await r.json()) as { entries: AccessEntry[] }).entries);
+      } catch {
+        /* silencieux */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const post = async (body: Record<string, unknown>, label: string) => {
     setBusy(label);
@@ -320,6 +347,32 @@ export default function MobileTab({ payload }: Props) {
         <b className="text-slate-200">Sécurité :</b> seuls les appareils de votre compte Tailscale atteignent votre PC, et le code PIN est demandé en plus. Les commandes du
         téléphone ont les mêmes droits que sur le PC (applications, maison connectée). Le mode Wi‑Fi local est en HTTP : les navigateurs y refusent le micro, mais vous pouvez
         écrire vos demandes.
+      </div>
+
+      <div className="rounded-2xl border border-hud/15 bg-black/20 p-4 text-xs leading-relaxed">
+        <div className="label mb-2 flex items-center gap-2">
+          <Lock size={11} /> Journal des connexions {premium ? "" : "(Premium)"}
+        </div>
+        {journal === null ? (
+          <p className="font-mono text-slate-500">Lecture du journal…</p>
+        ) : journal === "locked" ? (
+          <p className="text-slate-400">
+            L&apos;historique des connexions à votre JARVIS (appareil, adresse, réussite ou refus) est réservé à l&apos;édition Premium.
+          </p>
+        ) : journal.length === 0 ? (
+          <p className="font-mono text-slate-500">Aucune connexion enregistrée pour l&apos;instant.</p>
+        ) : (
+          <ul className="max-h-40 space-y-1 overflow-y-auto scroll-hud font-mono">
+            {journal.map((e, i) => (
+              <li key={`${e.at}-${i}`} className="flex items-center gap-2 rounded border border-hud/10 bg-black/20 px-2 py-1">
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${e.ok ? "bg-emerald-400" : "bg-red-400"}`} />
+                <span className="shrink-0 text-slate-400">{new Date(e.at).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}</span>
+                <span className="min-w-0 flex-1 truncate text-slate-300" title={e.device}>{e.device}</span>
+                <span className="shrink-0 text-slate-500">{e.ip}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
