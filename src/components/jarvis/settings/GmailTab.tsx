@@ -50,7 +50,7 @@ export default function GmailTab() {
     setBusy(true);
     setError(null);
     try {
-      const r = await fetch("/api/gmail?action=list&max=50", { cache: "no-store" });
+      const r = await fetch("/api/gmail?action=list&max=25", { cache: "no-store" });
       const j = (await r.json()) as { messages?: GmailMessage[]; error?: string };
       if (!r.ok || j.error) setError(j.error ?? "Erreur Gmail");
       else setMessages(j.messages ?? []);
@@ -149,7 +149,7 @@ export default function GmailTab() {
               <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-hud/60" />
               <input
                 className="hud-field !pl-9 text-sm"
-                placeholder="Rechercher dans les 50 derniers mails…"
+                placeholder="Rechercher dans les 25 derniers mails…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />

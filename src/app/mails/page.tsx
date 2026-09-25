@@ -25,7 +25,7 @@ export default function MailsPage() {
     setBusy(true);
     setError(null);
     try {
-      const r = await fetch("/api/gmail?action=list&max=50", { cache: "no-store" });
+      const r = await fetch("/api/gmail?action=list&max=25", { cache: "no-store" });
       const j = (await r.json()) as { messages?: GmailMessage[]; error?: string };
       if (!r.ok || j.error) setError(j.error ?? "Erreur Gmail");
       else setMessages(j.messages ?? []);

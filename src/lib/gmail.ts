@@ -194,7 +194,8 @@ async function gmailFetch<T>(pathname: string, token: string): Promise<T> {
     headers: { authorization: `Bearer ${token}` },
   });
   if (r.status === 429) {
-    quotaUntil = Date.now() + 90_000;
+    quotaStrikes += 1;
+    quotaUntil = Date.now() + (quotaStrikes > 1 ? 300_000 : 90_000);
     throw new Error("quota Google atteint (HTTP 429) — patientez environ une minute avant de réessayer");
   }
   if (!r.ok) throw new Error(`Gmail a répondu HTTP ${r.status}`);
@@ -207,6 +208,7 @@ const listCache = new Map<string, { at: number; data: GmailMessage[] }>();
 const CACHE_MS = 120_000;
 /** Backoff : après un 429, plus aucune requête Gmail pendant ce délai (on sert le cache). */
 let quotaUntil = 0;
+let quotaStrikes = 0;
 
 function quotaHit(): boolean {
   return Date.now() < quotaUntil;
@@ -245,9 +247,9 @@ export async function gmailList(max = 25, query = ""): Promise<GmailMessage[]> {
   if (!token) throw new Error("Gmail n'est pas connecté");
   const key = `list:${query.trim()}`;
   const hit = listCache.get(key);
-  const limit = Math.min(50, Math.max(1, max));
+  const limit = Math.min(25, Math.max(1, max));
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.data.slice(0, limit);
-  const params = new URLSearchParams({ maxResults: "50" });
+  const params = new URLSearchParams({ maxResults: "25" });
   if (query.trim()) params.set("q", query.trim());
   try {
     const list = await gmailFetch<{ messages?: { id: string }[] }>(`/messages?${params}`, token);
@@ -259,6 +261,7 @@ export async function gmailList(max = 25, query = ""): Promise<GmailMessage[]> {
       }),
     );
     listCache.set(key, { at: Date.now(), data: messages });
+    quotaStrikes = 0;
     return messages.slice(0, limit);
   } catch (e) {
     // Quota ou panne : on sert le cache périmé plutôt que rien (plus de « 0 mails » trompeur).

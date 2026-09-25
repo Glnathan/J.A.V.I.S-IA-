@@ -3,6 +3,14 @@
 Historique complet du projet, tenu à jour à chaque version. Ce document est la
 trace de tout le travail accompli, pour s'y retrouver plus tard.
 
+## 1.25.3 — Correctif quota Gmail, la vraie cause
+- 50 mails = 51 requêtes = 255 unités de quota Google, dont la limite est de
+  250/minute : chaque chargement complet dépassait mathématiquement le quota,
+  et chaque « Actualiser » sur un 429 relançait une salve complète (429 permanent).
+- La liste est plafonnée à 25 mails (130 unités, marge confortable), le backoff
+  devient progressif (90 s puis 5 min) et se réinitialise au premier succès.
+  Le cache partagé de 2 min reste : une seule salve pour tous les affichages.
+
 ## 1.25.2 — Correctif plantage complet du serveur (flux coupés)
 - Cause du « JARVIS ne répond plus / la page ne charge pas » : les routes qui
   diffusent un fichier (musique de démarrage, téléchargement de l'installateur)
