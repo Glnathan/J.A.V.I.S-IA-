@@ -654,8 +654,11 @@ export default function JarvisApp() {
     } else if (speakerRef.current?.speaking) cap.paused = true;
   };
 
+  // Réservation du micro (inscription/test de voix) : plus rien ne peut réarmer l'écoute.
+  const micReservedRef = useRef(false);
+
   const startRecognition = (mode: "ptt" | "wake"): boolean => {
-    if (micDiagnosticRef.current) return false;
+    if (micDiagnosticRef.current || micReservedRef.current) return false;
     if (currentEngine(mode) === "whisper") {
       void startWhisper(mode);
       return true;
@@ -1946,7 +1949,14 @@ export default function JarvisApp() {
           onInstall={() => void install()}
           onClose={() => setSettingsTab(null)}
           onSaved={onSettingsSaved}
-          onMicNeeded={() => stopRecognition()}
+          onMicNeeded={() => {
+            micReservedRef.current = true;
+            stopRecognition();
+          }}
+          onMicRelease={() => {
+            micReservedRef.current = false;
+            if (wakeRef.current) setTimeout(() => fns.current.startRec("wake"), 400);
+          }}
           onTestVoice={testVoice}
           onClearData={(k) => void clearData(k)}
           onQuit={() => void quitApp(true)}

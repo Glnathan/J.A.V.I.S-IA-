@@ -27,6 +27,8 @@ interface Props {
   onTestVoice: (opts: { voiceName: string; rate: number; pitch: number; text?: string }) => void;
   /** Libère le micro (arrête l'écoute permanente) avant une prise de voix — jamais deux micros à la fois. */
   onMicNeeded: () => void;
+  /** Rend le micro à l'écoute permanente après les prises de voix. */
+  onMicRelease: () => void;
   onClearData: (kind: "history" | "memories" | "tasks") => void;
   onQuit: () => void;
 }
@@ -46,7 +48,7 @@ const TABS: { id: SettingsTab; label: string; icon: ReactNode }[] = [
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const NO_SECRETS = { sttApiKey: "", haToken: "" };
 
-export default function SettingsModal({ payload, voices, canInstall, initialTab, onInstall, onClose, onSaved, onTestVoice, onMicNeeded, onClearData, onQuit }: Props) {
+export default function SettingsModal({ payload, voices, canInstall, initialTab, onInstall, onClose, onSaved, onTestVoice, onMicNeeded, onMicRelease, onClearData, onQuit }: Props) {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [form, setForm] = useState<SettingsForm>(() => formFromSettings(payload.settings));
   const [secrets, setSecrets] = useState(NO_SECRETS);
@@ -174,6 +176,7 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
               onClearSttKey={() => clearSecret("clearSttKey")}
               onTestVoice={onTestVoice}
               onMicNeeded={onMicNeeded}
+              onMicRelease={onMicRelease}
               onBootMusicChanged={refreshPayload}
             />
           )}

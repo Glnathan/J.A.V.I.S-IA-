@@ -27,7 +27,7 @@ try {
   await send("Page.enable");
   await send("Runtime.enable");
   console.log("navigation vers l'application JARVIS (fenetre reelle, GPU actif)…");
-  await send("Page.navigate", { url: "http://127.0.0.1:3998/" });
+  await send("Page.navigate", { url: "http://127.0.0.1:3777/" });
   await sleep(8000);
   console.log("page JARVIS chargee. Creation du worker de voix comme l'application…");
   await send("Runtime.evaluate", {

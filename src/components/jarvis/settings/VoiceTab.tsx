@@ -21,6 +21,7 @@ interface Props {
   onTestVoice: (opts: { voiceName: string; rate: number; pitch: number }) => void;
   onBootMusicChanged: () => Promise<void>;
   onMicNeeded: () => void;
+  onMicRelease: () => void;
 }
 
 const ENGINES = [
@@ -31,7 +32,7 @@ const ENGINES = [
 
 const ORIGIN: Record<string, string> = { settings: "clé dédiée", ai: "clé de l'IA", env: "clé système" };
 
-export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey, onClearSttKey, onTestVoice, onBootMusicChanged, onMicNeeded }: Props) {
+export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey, onClearSttKey, onTestVoice, onBootMusicChanged, onMicNeeded, onMicRelease }: Props) {
   const s = payload.settings;
   const frVoices = useMemo(() => voices.filter((v) => v.lang?.toLowerCase().startsWith("fr")), [voices]);
   const otherVoices = useMemo(() => voices.filter((v) => !v.lang?.toLowerCase().startsWith("fr")), [voices]);
@@ -46,7 +47,6 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
   const captureOne = (label: string): Promise<Blob | null> =>
     new Promise((resolve) => {
       let done = false;
-      onMicNeeded(); // libérer l'écoute permanente : jamais deux micros à la fois
       setVoiceStep(label);
       const cap = new VoiceCapture({
         silenceMs: 1200,
@@ -84,6 +84,15 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
   ];
 
   const enrollVoice = async () => {
+    onMicNeeded(); // réserver le micro : l'écoute permanente ne doit pas se réarmer pendant les prises
+    try {
+    await enrollVoiceInner();
+    } finally {
+      onMicRelease();
+    }
+  };
+
+  const enrollVoiceInner = async () => {
     setVoiceMsg(null);
     setVoiceTest(null);
     // 1. Modèle d'abord (téléchargement ~100 Mo la première fois, caché ensuite).
@@ -155,6 +164,15 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
   };
 
   const testVoice = async () => {
+    onMicNeeded();
+    try {
+    await testVoiceInner();
+    } finally {
+      onMicRelease();
+    }
+  };
+
+  const testVoiceInner = async () => {
     setVoiceTest(null);
     setVoiceMsg(null);
     setVoiceStep("Chargement du modèle de reconnaissance vocale… (première fois : environ 100 Mo)");
@@ -279,7 +297,7 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
               ? "Réservé à l'édition Premium : JARVIS vérifie que c'est bien vous devant la caméra avant d'obéir au mot d'activation."
               : !payload.settings.visionFace
                 ? "Inscrivez d'abord votre visage : ouvrez la Vision (« Jarvis, active la vision ») puis « Inscrire mon visage »."
-                : "En écoute permanente, le mot « Jarvis » n'est obéi que si votre visage inscrit est devant la caméra — la télé ne commande plus JARVIS."
+                : "En écoute permanente, le mot « Jarvis » n'est obéi que si votre visage inscrit est devant la caméra — la télé ne commande plus JARVIS. La caméra reste occupée pendant l'écoute : dites « Jarvis, libère la caméra » pour la rendre à un autre programme."
           }
         />
         <Toggle

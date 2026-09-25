@@ -296,6 +296,20 @@ export const INTENTS: Intent[] = [
       const f = c.f;
       // Message de la vision elle-même (image jointe au message) : ne jamais rebondir dessus.
       if (/^voici (une image|une capture)/.test(f)) return null;
+      // Libérer la caméra pour d'autres programmes : coupe la veille faciale et ferme la Vision.
+      if (/(libere|liberer|relache|coupe|eteins|arrete|desactive)\s+(la\s+|le\s+|ma\s+|mon\s+)?(camera|webcam|vision|veille faciale|reconnaissance (du visage|faciale))/.test(f)) {
+        await updateSettings({ visionGate: false });
+        return say(`Caméra libérée, ${c.sir}. Elle redevient disponible pour vos autres programmes.`, {
+          actions: [R_SETTINGS, { type: "vision", target: "close" }],
+        });
+      }
+      // Réactiver la veille faciale (Premium).
+      if (/(active|reactive|remets|verrouille)\s+(la\s+|le\s+)?(veille faciale|reconnaissance (du visage|faciale)|camera)/.test(f)) {
+        if (!hasPremium(c.s)) return say(`La veille faciale est réservée à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
+        if (!c.s.visionFace) return say(`Inscrivez d'abord votre visage : dites « active la vision », puis « inscrire mon visage », ${c.sir}.`);
+        await updateSettings({ visionGate: true });
+        return say(`Veille faciale réactivée, ${c.sir}. Je n'obéirai qu'en présence de votre visage.`, { actions: [R_SETTINGS] });
+      }
       const describe = /(decris|decrit|analyse|que vois tu|dis moi ce que tu vois|tu vois quoi)/.test(f);
       if (/(decris|decrit|analyse|que vois tu|dis moi ce que tu vois).*ecran|ecran.*(decris|decrit|analyse|que vois tu|dis moi ce que tu vois)/.test(f)) {
         if (!hasPremium(c.s)) return say(`La vision de l'écran est réservée à l'édition Premium, ${c.sir}.`, { actions: [R_SETTINGS] });
