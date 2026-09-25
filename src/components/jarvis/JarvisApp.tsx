@@ -1373,10 +1373,22 @@ export default function JarvisApp() {
   const onSettingsSaved = (p: SettingsPayload) => {
     const prevEngine = payloadRef.current?.settings.sttEngine;
     const prevSttOk = payloadRef.current?.stt.available;
+    const wasPremium = payloadRef.current?.settings.premiumActive ?? false;
     if (prevEngine !== p.settings.sttEngine) engineFailedRef.current = false;
     const engineChanged = prevEngine !== p.settings.sttEngine || prevSttOk !== p.stt.available;
     payloadRef.current = p;
     setPayload(p);
+    if (!wasPremium && p.settings.premiumActive) {
+      // Activation de la licence : message d'accueil Premium, voix et éclair doré éphémère.
+      const { sir } = addressOf(p);
+      const text = `Bienvenue dans l'édition Premium, ${sir}. Merci de votre confiance : mises à jour automatiques, apparences exclusives, sauvegardes quotidiennes et journal des connexions sont désormais actifs — pour toujours. Je m'occupe de tout.`;
+      setMessages((m) => [...m, { id: uid(), role: "assistant", content: text, source: "local", createdAt: Date.now() }]);
+      sfx.success();
+      speak(text);
+      const prev = baseThemeRef.current;
+      applyTheme("gold");
+      themeTimerRef.current = setTimeout(() => applyTheme(prev), 6000);
+    }
     if (p.settings.autoSpeak === mutedRef.current) setMute(!p.settings.autoSpeak, false, true);
     if (p.settings.wakeWord !== wakeRef.current) setWake(p.settings.wakeWord, false);
     else if (engineChanged && wakeRef.current) {

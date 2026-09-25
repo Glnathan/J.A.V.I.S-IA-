@@ -3,6 +3,7 @@
 import { CheckCircle2, Crown, Database, Download, ExternalLink, HardDriveDownload, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { SettingsPayload } from "@/lib/types";
+import { PREMIUM_PRICE } from "@/lib/premium";
 
 interface UpdateCheck {
   current: string;
@@ -162,7 +163,14 @@ export default function PremiumTab({ payload, onSaved }: Props) {
       </div>
 
       <div className="space-y-3 rounded border border-hud/15 bg-black/20 p-4">
-        <div className="label">Clé Premium</div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="label">Clé Premium</div>
+          <span className="font-display text-sm tracking-[0.15em] text-amber-300">{PREMIUM_PRICE}</span>
+        </div>
+        <p className="text-xs leading-relaxed text-slate-400">
+          Licence <b className="text-slate-200">à vie</b> : {PREMIUM_PRICE}, une seule fois. La clé est fournie par le créateur de J.A.R.V.I.S. après votre soutien —
+          saisissez-la ci-dessous pour tout activer.
+        </p>
         <div className="flex flex-wrap gap-2">
           <input
             className="hud-field font-mono uppercase"

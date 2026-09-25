@@ -59,7 +59,9 @@ PostgreSQL / PGlite · plugins Python (pont JSON sur stdin/stdout) · NSIS pour 
   `nanotech`/`ultron`/`stealth`), sauvegardes (`src/lib/backup.ts` + `/api/backup` : quotidienne via `instrumentation.ts`,
   restauration par script `restaurer-jarvis.cmd`), journal des connexions distantes (`src/lib/access-log.ts` +
   `/api/remote/journal`, alimenté par `/api/remote/login`). Générateur de clés du vendeur : `generer-cle.bat` →
-  `scripts/generer-cle.mjs` (registre local `cles-vendues.csv`, ignoré par Git).
+  `scripts/generer-cle.mjs` (registre local `cles-vendues.csv`, ignoré par Git). Prix affiché : `PREMIUM_PRICE`
+  dans `src/lib/premium.ts` (une seule constante pour l'onglet Premium et la page `/telecharger`). À l'activation
+  d'une clé, `JarvisApp.tsx` (`onSettingsSaved`) prononce le message d'accueil Premium et flashe le thème or.
 - `desktop/` : lanceur Node et scripts NSIS · `scripts/build-desktop.mjs` : fabrication de l'installateur
 - `plugins/` : plugins Python d'exemple (copiés dans `%USERPROFILE%\JARVIS\plugins` au premier lancement du PC)
 

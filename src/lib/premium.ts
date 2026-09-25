@@ -2,6 +2,9 @@
 // Remarque : une validation 100 % hors ligne est symbolique ; un vrai contrôle d'accès passe par un
 // service en ligne (futur « service Premium »). Pour un projet personnel, c'est largement suffisant.
 
+/** Prix affiché de la licence Premium (à vie). Modifiez-le ici, il s'applique partout. */
+export const PREMIUM_PRICE = "19,99 €";
+
 const GROUP = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // sans I, L, O, 0, 1 pour éviter les confusions
 const KEY_RE = new RegExp(`^JARVIS-([${GROUP}]{5})-([${GROUP}]{5})-(\\d{2})$`);
 
