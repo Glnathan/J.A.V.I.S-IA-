@@ -24,7 +24,7 @@ function harness(overrides = {}) {
     payloadRef: {current:{settings:{voiceGate:true, premiumActive:true, voicePrint:{descriptors:[[1]]}},stt:{available:true}}},
     converseUntilRef:{current:Date.now()+600000}, converseLastAtRef:{current:Date.now()},
     awaitingUntilRef:{current:0}, voiceGateNoticeRef:{current:0}, faceGateNoticeRef:{current:0},
-    micReservedRef:{current:false},micDiagnosticRef:{current:false},
+    micReservedRef:{current:false},micDiagnosticRef:{current:false},pendingFaceRef:{current:null},
     setInterim:()=>{},setStatus:()=>{},setAwaiting:()=>{},setMicError:(s)=>notices.push(s),
     pushNotice:(s)=>notices.push(s),sfx:{success:()=>{},wake:()=>{}},
     foldText:s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase(),

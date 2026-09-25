@@ -409,6 +409,9 @@ export default function JarvisApp() {
   // disponible pour vos autres applications (Deezer, Discord, OBS…).
   const faceGateNoticeRef = useRef(0);
   const voiceGateNoticeRef = useRef(0);
+  /** Visage pré-chauffé pendant la transcription (résultat réutilisé par handleWake). */
+  const pendingFaceRef = useRef<Promise<boolean | null> | null>(null);
+
   /** Conversation libre (Premium) : sans mot d'activation jusqu'à silence ou « merci ». */
   const converseUntilRef = useRef(0);
   const converseLastAtRef = useRef(0);
@@ -477,7 +480,8 @@ export default function JarvisApp() {
       // d'activation (la caméra est ouverte puis relâchée immédiatement).
       if (visionGateActive()) {
         setStatus("thinking");
-        const faceOk = await checkFaceNow();
+        const pending = pendingFaceRef.current;
+        const faceOk = pending ? await pending : await checkFaceNow();
         setStatus((s) => (s === "thinking" ? "idle" : s));
         if (faceOk !== true) {
           if (now - faceGateNoticeRef.current > 60000) {
@@ -559,7 +563,8 @@ export default function JarvisApp() {
     }
     try {
       let voiceVerified = false;
-      // Verrou vocal : avant toute transcription en veille, la voix doit être la vôtre.
+      // Verrou vocal : la voix est vérifiée AVANT la transcription — l'audio qui
+      // n'est pas le vôtre (télévision, invités) ne quitte jamais votre PC.
       if (mode === "wake" && voiceGateActive()) {
         const mine = await verifyWav(wav, payloadRef.current?.settings.voicePrint ?? null);
         const now = Date.now();
@@ -573,6 +578,15 @@ export default function JarvisApp() {
           return;
         }
         voiceVerified = true;
+        // C'est bien vous : le contrôle du visage démarre dès maintenant, en
+        // parallèle de la transcription (la caméra est locale, rien n'est envoyé).
+        if (payloadRef.current?.settings.visionGate && payloadRef.current?.settings.visionFace && wakeRef.current) {
+          const faceP = checkFaceNow();
+          pendingFaceRef.current = faceP;
+          faceP.finally(() => {
+            setTimeout(() => { if (pendingFaceRef.current === faceP) pendingFaceRef.current = null; }, 1500);
+          }).catch(() => undefined);
+        }
       }
       const { text, suspect } = await transcribe(wav);
       if (mode === "ptt") {
@@ -609,9 +623,9 @@ export default function JarvisApp() {
     }
     const single = mode === "ptt";
     const cap = new VoiceCapture({
-      silenceMs: single ? 1100 : 800,
+      silenceMs: single ? 1100 : 650,
       maxMs: single ? 15000 : 9000,
-      minSpeechMs: single ? 200 : 350,
+      minSpeechMs: single ? 200 : 300,
       onLevel: (l) => {
         if (captureRef.current === cap) levelRef.current = Math.max(levelRef.current * 0.7, l);
       },
