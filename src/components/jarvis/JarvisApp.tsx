@@ -969,23 +969,37 @@ export default function JarvisApp() {
   };
 
   const runActions = (actions: ClientAction[], botId: string) => {
-    const blocked: { label: string; url: string }[] = [];
     for (const a of actions) {
       switch (a.type) {
         case "open": {
-          let w: Window | null = null;
-          try {
-            w = window.open(a.url, "_blank");
-          } catch {
-            w = null;
-          }
-          if (w) {
-            try {
-              w.opener = null;
-            } catch {
-              /* ignore */
+          // Version PC : ouverture native par le serveur — le bloqueur de pop-ups
+          // du navigateur ne bloque plus les commandes vocales. Repli fenêtre sinon.
+          void (async () => {
+            if (payloadRef.current?.desktop.enabled) {
+              try {
+                const r = await fetch("/api/open", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ url: a.url }) });
+                if (r.ok) return;
+              } catch {
+                /* repli ci-dessous */
+              }
             }
-          } else blocked.push({ label: a.label, url: a.url });
+            let w: Window | null = null;
+            try {
+              w = window.open(a.url, "_blank");
+            } catch {
+              w = null;
+            }
+            if (w) {
+              try {
+                w.opener = null;
+              } catch {
+                /* ignore */
+              }
+            } else {
+              const entry = { label: a.label, url: a.url };
+              setMessages((ms) => ms.map((m) => (m.id === botId ? { ...m, blocked: [...(m.blocked ?? []), entry] } : m)));
+            }
+          })();
           break;
         }
         case "timer":
@@ -1112,7 +1126,6 @@ export default function JarvisApp() {
         }
       }
     }
-    if (blocked.length) setMessages((ms) => ms.map((m) => (m.id === botId ? { ...m, blocked } : m)));
   };
 
   const clientContext = async (): Promise<ClientContext> => {

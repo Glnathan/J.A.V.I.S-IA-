@@ -3,6 +3,12 @@
 Historique complet du projet, tenu à jour à chaque version. Ce document est la
 trace de tout le travail accompli, pour s'y retrouver plus tard.
 
+## 1.24.1 — Ouverture native des sites (version PC)
+- « ouvre YouTube » : Chrome bloquait window.open des commandes vocales
+  (pop-up sans geste utilisateur). Nouvelle route /api/open : sur la version
+  PC installée, le serveur ouvre l'URL dans le navigateur par défaut via
+  PowerShell (Start-Process). Repli window.open + lien cliquable sinon.
+  La version web publique refuse la route (isDesktop()).
 ## 1.24.0 — Mot d'activation personnalisé (Premium)
 - « Jarvis, réponds à Vendredi » (ou « réveille-toi au mot X », « surnomme-toi X »,
   « nouveau mot d'activation X ») : remplace « Jarvis » par le mot de votre choix,
