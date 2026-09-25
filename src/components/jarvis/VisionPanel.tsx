@@ -129,11 +129,12 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
   const faceBusyRef = useRef(0);
   const [status, setStatus] = useState<"starting" | "live" | "error">("starting");
   const [error, setError] = useState<string | null>(null);
-  const [motion, setMotion] = useState<{ pct: number; side: string } | null>(null);
   const [faceOn, setFaceOn] = useState(false);
   const [face, setFace] = useState<FaceState>({ status: "idle" });
   const [enrolling, setEnrolling] = useState(false);
+  const motionLabelRef = useRef<HTMLSpanElement | null>(null);
 
+  // Callbacks dans des refs : la boucle d'animation ne doit jamais redemarrer à cause d'un re-rendu.
   const announce = useCallback(
     (side: string) => {
       const now = Date.now();
@@ -143,6 +144,12 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
     },
     [onGreet],
   );
+  const announceRef = useRef(announce);
+  const greetRef = useRef(onGreet);
+  useEffect(() => {
+    announceRef.current = announce;
+    greetRef.current = onGreet;
+  });
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -181,6 +188,7 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
     detRef.current = det;
     const dctx = det.getContext("2d", { willReadFrequently: true });
 
+    let framesStill = 0;
     const loop = () => {
       rafRef.current = requestAnimationFrame(loop);
       const v = videoRef.current;
@@ -210,6 +218,7 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
       prevRef.current = data;
 
       if (box && box.score > 60) {
+        framesStill = 75; // ~1,25 s sans mouvement avant de réafficher « AUCUN MOUVEMENT »
         const bx = box.x * c.width;
         const by = box.y * c.height;
         const bw = box.w * c.width;
@@ -224,9 +233,12 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
         ctx.fillText(`CIBLE · ${Math.round(box.w * 100)}%×${Math.round(box.h * 100)}%`, bx + 2, Math.max(11, by - 4));
         const cx = bx + bw / 2;
         const pct = Math.min(100, Math.round(box.score / 8));
-        setMotion({ pct, side: cx < c.width / 3 ? "à gauche" : cx > (c.width * 2) / 3 ? "à droite" : "au centre" });
-        if (pct > 30) announce(cx < c.width / 3 ? "à gauche" : cx > (c.width * 2) / 3 ? "à droite" : "au centre");
-      } else if (Math.random() < 0.05) setMotion(null);
+        const side = cx < c.width / 3 ? "à gauche" : cx > (c.width * 2) / 3 ? "à droite" : "au centre";
+        if (motionLabelRef.current) motionLabelRef.current.textContent = `MOUVEMENT ${side.toUpperCase()} · ${pct}%`;
+        if (pct > 30) announceRef.current(side);
+      } else if (motionLabelRef.current && framesStill > 0 && --framesStill === 0) {
+        motionLabelRef.current.textContent = "AUCUN MOUVEMENT";
+      }
 
       // Croix centrale + réticule
       const midX = c.width / 2;
@@ -247,7 +259,7 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [status, announce]);
+  }, [status]);
 
   // Exposition de la trame courante pour « décris ce que voit la caméra ».
   useEffect(() => {
@@ -269,7 +281,7 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
         const r = await recognizeFrame(canvasRef.current, faceData);
         if (!alive) return;
         setFace(r);
-        if (r.status === "recognized" && r.greet) onGreet(`Bonjour, ${r.name}.`);
+        if (r.status === "recognized" && r.greet) greetRef.current(`Bonjour, ${r.name}.`);
       }
       setTimeout(() => void tick(), 400);
     };
@@ -277,7 +289,7 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
     return () => {
       alive = false;
     };
-  }, [faceOn, status, onGreet, faceData]);
+  }, [faceOn, status, faceData]);
 
   const enroll = async () => {
     if (!canvasRef.current) return;
@@ -288,7 +300,7 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
     setEnrolling(false);
   };
 
-  const sideLabel = motion ? `MOUVEMENT ${motion.side.toUpperCase()} · ${motion.pct}%` : "AUCUN MOUVEMENT";
+  const sideLabel = "AUCUN MOUVEMENT";
   const faceLabel =
     face.status === "loading"
       ? "MODÈLE…"
@@ -310,7 +322,7 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
       <div className="hud-panel fade-in relative z-10 flex h-[92dvh] w-[min(96vw,1100px)] flex-col !bg-[#030b14]/95 p-4">
         <header className="mb-3 flex flex-wrap items-center gap-3">
           <span className="glow-text font-display text-sm tracking-[0.3em] text-hud">VISION</span>
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-hud/60">{sideLabel}</span>
+          <span ref={motionLabelRef} className="font-mono text-[10px] uppercase tracking-[0.2em] text-hud/60">{sideLabel}</span>
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-hud/60">{faceLabel}</span>
           <div className="ml-auto flex gap-2">
             <button
@@ -337,7 +349,7 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
         </header>
 
         <div className="relative min-h-0 flex-1 overflow-hidden rounded border border-hud/25 bg-black/60">
-          <video ref={videoRef} className="hidden" playsInline muted />
+          <video ref={videoRef} className="pointer-events-none absolute left-0 top-0 h-px w-px opacity-0" playsInline muted />
           <canvas ref={canvasRef} className="h-full w-full object-contain" />
           <div className="scanlines pointer-events-none absolute inset-0" />
           <div className="vignette pointer-events-none absolute inset-0" />

@@ -65,10 +65,8 @@ export async function recognizeFrame(canvas: HTMLCanvasElement, stored: StoredFa
   if (!d) return { status: "no-face" };
   let best = Infinity;
   for (const ref of stored.descriptors) {
-    for (let i = 0; i < ref.length; i++) {
-      const dist = distance(d, ref);
-      if (dist < best) best = dist;
-    }
+    const dist = distance(d, ref);
+    if (dist < best) best = dist;
   }
   if (best < 0.5) {
     const now = Date.now();
