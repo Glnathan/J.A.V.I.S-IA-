@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",
-    "@huggingface/transformers": "^4.3.0",
     "@types/qrcode": "^1.5.6",
     "@vladmandic/face-api": "^1.7.15",
+    "@xenova/transformers": "^2.17.2",
     "7zip-bin": "^5.2.0",
     "dotenv": "17.3.1",
     "drizzle-orm": "0.45.2",
