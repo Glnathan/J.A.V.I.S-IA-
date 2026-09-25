@@ -91,6 +91,26 @@ export function resolveAI(s: SettingsRow): ResolvedAI | null {
   return null;
 }
 
+/**
+ * Chaîne de secours : l'IA choisie d'abord, puis toutes les autres IA dont une clé
+ * est disponible (modèle par défaut de chacune). Si une panne survient (503, réseau…),
+ * la conversation bascule sur la suivante.
+ */
+export function aiChain(s: SettingsRow): ResolvedAI[] {
+  const primary = resolveAI(s);
+  if (!primary) return [];
+  const chain: ResolvedAI[] = [primary];
+  const seen = new Set<string>([primary.provider]);
+  for (const p of PROVIDERS) {
+    if (seen.has(p.id) || !p.needsKey) continue;
+    const key = aiKeysOf(s)[p.id] || envKey(p.envKeys);
+    if (!key) continue;
+    chain.push({ provider: p.id, label: p.label, model: p.defaultModel, apiKey: key, baseUrl: p.baseUrl, origin: "settings" });
+    seen.add(p.id);
+  }
+  return chain;
+}
+
 /** Merge consecutive same-role turns and make sure the conversation starts with the user. */
 export function normalizeHistory(h: ChatTurn[]): ChatTurn[] {
   const out: ChatTurn[] = [];

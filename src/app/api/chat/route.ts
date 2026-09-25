@@ -2,7 +2,7 @@ import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { conversations, memories, messages, tasks } from "@/db/schema";
 import { applyLLMTags, buildSystemPrompt, cleanCommand, fallbackBrain, makeCtx, runLocalBrain } from "@/lib/brain";
-import { normalizeHistory, resolveAI, shortReason, streamChat, type ChatTurn } from "@/lib/brain/llm";
+import { normalizeHistory, resolveAI, aiChain, shortReason, streamChat, type ChatTurn } from "@/lib/brain/llm";
 import { runPlugins } from "@/lib/brain/plugins";
 import { getSettings } from "@/lib/brain/settings";
 import { isDesktop, touchActivity } from "@/lib/runtime";
@@ -122,8 +122,6 @@ export async function POST(req: Request) {
           send({ type: "delta", text: local.text });
           await finish(local, pluginLabel);
         } else if (ai) {
-          const providerLabel = `${ai.label} · ${ai.model}`;
-          send({ type: "meta", conversationId: convId, source: "llm", provider: providerLabel });
           const [hist, mems, pend] = await Promise.all([
             db
               .select({ role: messages.role, content: messages.content })
@@ -138,34 +136,50 @@ export async function POST(req: Request) {
             hist.reverse().map((h): ChatTurn => ({ role: h.role === "assistant" ? "assistant" : "user", content: h.content })),
           );
           const system = buildSystemPrompt(ctx, mems.map((m) => m.content), pend);
+          // Chaîne de secours : si une IA tombe (panne, 503, quota), on essaie la suivante.
+          const chain = aiChain(settings);
           let full = "";
-          try {
-            for await (const chunk of streamChat(ai, system, history, req.signal, image)) {
-              full += chunk;
-              send({ type: "delta", text: chunk });
+          let providerLabel = "";
+          let success = false;
+          let lastReason = "";
+          for (const cand of chain) {
+            const label = `${cand.label} · ${cand.model}`;
+            providerLabel = label;
+            send({ type: "meta", conversationId: convId, source: "llm", provider: label });
+            full = "";
+            try {
+              for await (const chunk of streamChat(cand, system, history, req.signal, image)) {
+                full += chunk;
+                send({ type: "delta", text: chunk });
+              }
+              if (!full.trim()) throw new Error("réponse vide du modèle");
+              success = true;
+              break;
+            } catch (err) {
+              lastReason = err instanceof Error ? err.message : String(err);
+              console.error(`[jarvis] LLM error (${cand.provider}):`, lastReason);
+              if (req.signal.aborted || full.trim()) break;
+              if (chain.indexOf(cand) < chain.length - 1) console.error(`[jarvis] Bascule sur une autre IA…`);
             }
-            if (!full.trim()) throw new Error("réponse vide du modèle");
+          }
+          if (req.signal.aborted) {
+            if (full.trim()) {
+              const { text } = await applyLLMTags(full, ctx);
+              await finish({ text, source: "llm" }, providerLabel);
+            }
+          } else if (success) {
             const { text, actions } = await applyLLMTags(full, ctx);
             await finish({ text: text || "…", source: "llm", actions }, providerLabel);
-          } catch (err) {
-            const reason = err instanceof Error ? err.message : String(err);
-            console.error("[jarvis] LLM error:", reason);
-            if (req.signal.aborted) {
-              if (full.trim()) {
-                const { text } = await applyLLMTags(full, ctx);
-                await finish({ text, source: "llm" }, providerLabel);
-              }
-            } else if (full.trim()) {
-              const note = "\n\n(Connexion à l'IA interrompue.)";
-              send({ type: "delta", text: note });
-              const { text, actions } = await applyLLMTags(full, ctx);
-              await finish({ text: text + note, source: "llm", actions }, providerLabel);
-            } else {
-              const fb = await fallbackBrain(ctx, shortReason(reason));
-              send({ type: "meta", conversationId: convId, source: fb.source });
-              send({ type: "delta", text: fb.text });
-              await finish(fb);
-            }
+          } else if (full.trim()) {
+            const note = "\n\n(Connexion à l'IA interrompue.)";
+            send({ type: "delta", text: note });
+            const { text, actions } = await applyLLMTags(full, ctx);
+            await finish({ text: text + note, source: "llm", actions }, providerLabel);
+          } else {
+            const fb = await fallbackBrain(ctx, shortReason(lastReason));
+            send({ type: "meta", conversationId: convId, source: fb.source });
+            send({ type: "delta", text: fb.text });
+            await finish(fb);
           }
         } else {
           const fb = await fallbackBrain(ctx);
