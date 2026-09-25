@@ -297,7 +297,7 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
               ? "Réservé à l'édition Premium : JARVIS vérifie que c'est bien vous devant la caméra avant d'obéir au mot d'activation."
               : !payload.settings.visionFace
                 ? "Inscrivez d'abord votre visage : ouvrez la Vision (« Jarvis, active la vision ») puis « Inscrire mon visage »."
-                : "En écoute permanente, le mot « Jarvis » n'est obéi que si votre visage inscrit est devant la caméra — la télé ne commande plus JARVIS. La caméra reste occupée pendant l'écoute : dites « Jarvis, libère la caméra » pour la rendre à un autre programme."
+                : "En écoute permanente, le mot « Jarvis » n'est obéi que si votre visage inscrit est devant la caméra — la télé ne commande plus JARVIS. La caméra n'est utilisée qu'une à deux secondes au moment du mot « Jarvis », puis relâchée : vos autres applications (Deezer, Discord…) en disposent librement."
           }
         />
         <Toggle

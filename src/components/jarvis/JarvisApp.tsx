@@ -404,88 +404,45 @@ export default function JarvisApp() {
     }
   };
 
-  // ─── Veille faciale (Premium) : le mot « Jarvis » ne compte que si le
-  // visage inscrit est devant la caméra — la télé ne commande plus JARVIS.
-  const faceSeenAtRef = useRef(0);
+  // ─── Veille faciale (Premium) : la caméra n'est utilisée qu'une à deux
+  // secondes au moment du mot « Jarvis », puis relâchée aussitôt — elle reste
+  // disponible pour vos autres applications (Deezer, Discord, OBS…).
   const faceGateNoticeRef = useRef(0);
   const voiceGateNoticeRef = useRef(0);
   const visionGateActive = () =>
     Boolean(payloadRef.current?.settings.visionGate && payloadRef.current?.settings.visionFace && wakeRef.current);
-  const faceGateOk = () => !visionGateActive() || Date.now() - faceSeenAtRef.current < 10000;
 
-  useEffect(() => {
+  /** Vérification du visage à la demande (caméra ouverte brièvement, puis relâchée). */
+  const checkFaceNow = async (): Promise<boolean | null> => {
+    const face = payloadRef.current?.settings.visionFace ?? null;
+    if (!face) return null;
     let stream: MediaStream | null = null;
     let video: HTMLVideoElement | null = null;
-    let canvas: HTMLCanvasElement | null = null;
-    let alive = true;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const active = () => Boolean(payload?.settings.visionGate && payload?.settings.visionFace && wakeMode);
-
-    const tick = async () => {
-      if (!alive || !active() || !canvas || !video) return;
-      try {
-        video.width = 320;
-        video.height = 240;
-        canvas.width = 320;
-        canvas.height = 240;
-        canvas.getContext("2d")?.drawImage(video, 0, 0, 320, 240);
-        const r = await recognizeFrame(canvas, payload?.settings.visionFace ?? null);
-        if (!alive) return;
-        if (r.status === "recognized") faceSeenAtRef.current = Date.now();
-      } catch {
-        /* caméra occupée : prochain essai */
-      } finally {
-        if (alive && active()) timer = setTimeout(() => void tick(), 2500);
-      }
-    };
-
-    const start = async () => {
-      if (stream || !alive || !active()) return;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 } } });
-        video = document.createElement("video");
-        video.muted = true;
-        video.playsInline = true;
-        video.srcObject = stream;
-        await video.play();
-        canvas = document.createElement("canvas");
-        void tick();
-      } catch {
-        stream?.getTracks().forEach((t) => t.stop());
-        stream = null;
-      }
-    };
-
-    const stop = () => {
-      if (timer) clearTimeout(timer);
-      timer = null;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 } } });
+      video = document.createElement("video");
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = stream;
+      await video.play();
+      await new Promise((r) => setTimeout(r, 700)); // laisser la caméra s'ajuster
+      const canvas = document.createElement("canvas");
+      canvas.width = 320;
+      canvas.height = 240;
+      canvas.getContext("2d")?.drawImage(video, 0, 0, 320, 240);
+      const r = await recognizeFrame(canvas, face);
+      return r.status === "recognized";
+    } catch {
+      return null; // caméra occupée ou refusée : on ne bloque pas
+    } finally {
       stream?.getTracks().forEach((t) => t.stop());
-      stream = null;
       if (video) video.srcObject = null;
-      video = null;
-    };
+    }
+  };
 
-    if (active()) void start();
-    else stop();
-    return () => {
-      alive = false;
-      stop();
-    };
-  }, [payload?.settings.visionGate, payload?.settings.visionFace, wakeMode]);
-
-  const handleWake = (interimText: string, finalText: string) => {
+  const handleWake = async (interimText: string, finalText: string) => {
     const now = Date.now();
     const awaitingNow = now < awaitingUntilRef.current;
-    // Veille faciale : sans visage inscrit devant la caméra, le mot d'activation est ignoré.
-    if (!faceGateOk()) {
-      if (WAKE_RE.test(foldText(finalText)) && now - faceGateNoticeRef.current > 60000) {
-        faceGateNoticeRef.current = now;
-        pushNotice("Mot « Jarvis » entendu sans visage reconnu — ignoré. (Veille faciale active : Paramètres → Voix & micro)");
-      }
-      setInterim("");
-      return;
-    }
     if (interimText && (awaitingNow || WAKE_RE.test(foldText(interimText)))) {
       setInterim(interimText);
       setStatus((s) => (s === "idle" ? "listening" : s));
@@ -494,6 +451,21 @@ export default function JarvisApp() {
     if (!text) return;
     const m = WAKE_RE.exec(foldText(finalText));
     if (m) {
+      // Veille faciale : une brève vérification du visage au moment du mot
+      // d'activation (la caméra est ouverte puis relâchée immédiatement).
+      if (visionGateActive()) {
+        setStatus("thinking");
+        const faceOk = await checkFaceNow();
+        setStatus((s) => (s === "thinking" ? "idle" : s));
+        if (faceOk === false) {
+          if (now - faceGateNoticeRef.current > 60000) {
+            faceGateNoticeRef.current = now;
+            pushNotice("Mot « Jarvis » entendu sans visage reconnu — ignoré. (Veille faciale active : Paramètres → Voix & micro)");
+          }
+          setInterim("");
+          return;
+        }
+      }
       const after = finalText.slice(m.index + m[0].length).replace(/^[\s,.!?;:-]+/, "").trim();
       const before = finalText.slice(0, m.index).replace(/[\s,.!?;:-]+$/, "").trim();
       setInterim("");
