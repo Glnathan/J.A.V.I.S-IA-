@@ -57,6 +57,8 @@ export const settings = pgTable("settings", {
   aiKeys: text("ai_keys").notNull().default("{}"),
   /** Clé de licence J.A.R.V.I.S. Premium (vide = édition Standard). */
   premiumKey: text("premium_key").notNull().default(""),
+  /** Jeton signé délivré par le service de licences (activation en ligne). */
+  premiumToken: text("premium_token").notNull().default(""),
   /** Visage inscrit pour la reconnaissance (édition Premium) : JSON { name, descriptors }. */
   visionFace: text("vision_face").notNull().default(""),
   /** Veille faciale (Premium) : l'écoute permanente ne s'active que si le visage inscrit est visible. */

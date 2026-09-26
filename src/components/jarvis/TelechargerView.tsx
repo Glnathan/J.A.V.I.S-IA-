@@ -3,7 +3,7 @@
 import { ArrowLeft, Check, Crown, Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { DownloadItem } from "@/lib/types";
-import { PREMIUM_PRICE } from "@/lib/premium";
+import { PREMIUM_PRICE } from "@/lib/price";
 import { InstallerDownloads } from "./settings/DownloadButtons";
 
 /** Comparatif des éditions : les fonctions de base sont identiques, Premium ajoute le confort. */

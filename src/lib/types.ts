@@ -132,6 +132,8 @@ export interface PublicSettings {
   aiKeyPreviews: Record<string, string>;
   /** Édition Premium active (clé de licence valide). */
   premiumActive: boolean;
+  /** Date dexpiration du jeton Premium (null si Standard). */
+  premiumExpires: string | null;
   /** Visage inscrit pour la reconnaissance (édition Premium), null si aucun. */
   /** Visages inscrits pour la reconnaissance (famille) : null = aucun. */
   visionFace: { name: string; descriptors: number[][] }[] | null;

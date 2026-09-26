@@ -1,7 +1,7 @@
 import { normalizeHaUrl } from "@/lib/brain/home-assistant";
 import { buildSettingsPayload } from "@/lib/brain/payload";
 import { getSettings, parseVisionFace, parseVoicePrint, updateSettings, type SettingsPatch } from "@/lib/brain/settings";
-import { isValidPremiumKey, hasPremium, normalizePremiumKey } from "@/lib/premium";
+import { hasPremium, normalizePremiumKey, verifyPremiumToken } from "@/lib/premium";
 import { getProvider } from "@/lib/providers";
 import { canonicalYouTubeUrl, parseYouTubeId } from "@/lib/youtube";
 
@@ -221,12 +221,19 @@ const voiceGate = bool("voiceGate");
     patch.aiApiKey = "";
   }
 
-  // Premium
+  // Premium : la clé est conservée pour l'activation/renouvellement en ligne
+  // (POST /api/premium), qui délivre le jeton signé. Vidage = désactivation.
   const premiumKey = str("premiumKey", 40);
   if (premiumKey !== undefined) {
-    if (!premiumKey) patch.premiumKey = "";
-    else if (isValidPremiumKey(premiumKey)) patch.premiumKey = normalizePremiumKey(premiumKey);
-    else return Response.json({ error: "Clé Premium invalide. Format attendu : JARVIS-XXXXX-XXXXX-XX." }, { status: 400 });
+    if (!premiumKey) {
+      patch.premiumKey = "";
+      patch.premiumToken = "";
+    } else patch.premiumKey = normalizePremiumKey(premiumKey);
+  }
+  const premiumToken = str("premiumToken", 500);
+  if (premiumToken !== undefined) {
+    if (!premiumToken) patch.premiumToken = "";
+    else if (verifyPremiumToken(premiumToken)) patch.premiumToken = premiumToken;
   }
 
   // Vision (édition Premium) : visages inscrits pour la reconnaissance.

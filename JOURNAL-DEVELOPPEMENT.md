@@ -13,6 +13,28 @@ trace de tout le travail accompli, pour s'y retrouver plus tard.
   licence reste hors ligne (checksum mod 97) : un service en ligne reste à faire
   pour une vraie protection.
 
+## 1.28.0 — Licences Premium en ligne (jeton signé Ed25519)
+- Nouveau dossier licences/ : service de licences déployable sur Vercel (zéro
+  dépendance, fonction api/activate.js). Liste des clés vendues dans la variable
+  KEYS_JSON ; SIGNING_KEY = clé privée Ed25519 (licences/.signing-private.pem,
+  locale, gitignorée — jamais dans le dépôt).
+- JARVIS : activation en ligne (POST /api/premium, proxy vers le service) qui
+  délivre un jeton signé valable 1 an, stocké dans settings.premium_token
+  (migration 0010). hasPremium vérifie la signature Ed25519 avec la clé
+  publique embarquée (src/lib/premium.ts v2) : forger un jeton est impossible
+  sans la clé privée, même en lisant le code public. L ancien format mod-97
+  (forgérable) est refusé.
+  - Renouvellement silencieux quand le jeton arrive à échéance (<60 jours),
+  expiration affichée dans Paramètres > Premium. Un client hors-ligne reste
+  Premium jusqu à un an. Révocation : retirer la clé de KEYS_JSON.
+  - PREMIUM_PRICE déplacé dans src/lib/price.ts (premium.ts importe node:crypto,
+  réservé au serveur).
+  - Test : scripts/test-licence.cjs (7/7) — jeton valide, expiré, payload
+  falsifié, autre clé privée, déchets, ancien format.
+  - DÉPLOIEMENT REQUIS AVANT INSTALL : guide licences/LISEZMOI.md (Vercel,
+  KEYS_JSON depuis cles-vendues.csv). Sans service déployé, l activation
+  échoue (et l ancien système ne marche plus).
+
 ## 1.27.1 — Sélecteur d apparence au clic
 - Paramètres → Profil : carte « Apparence de JARVIS » — 8 pastilles de couleurs,
   un clic applique le thème ( Cyan, Alerte rouge, Mark, Éco, Gaming, et les

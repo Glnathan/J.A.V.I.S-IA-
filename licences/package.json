@@ -1,0 +1,6 @@
+{
+  "name": "jarvis-licences",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Service de licences J.A.R.V.I.S. Premium (activation + jeton signé)"
+}

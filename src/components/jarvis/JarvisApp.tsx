@@ -953,6 +953,32 @@ export default function JarvisApp() {
 
   // Viseur HUD (Iron Man) : suit le curseur ; parallaxe des couches de fond avec la souris.
   const reticleRef = useRef<HTMLDivElement | null>(null);
+  // Licence Premium : renouvellement silencieux quand le jeton approche de son
+  // expiration (60 jours), tant qu'une clé est enregistrée et Internet disponible.
+  useEffect(() => {
+    const exp = payload?.settings.premiumExpires;
+    if (!exp || !payload.settings.premiumActive) return;
+    const msLeft = new Date(exp).getTime() - Date.now();
+    if (msLeft > 60 * 24 * 3600 * 1000) return;
+    let done = false;
+    const renew = () => {
+      if (done) return;
+      done = true;
+      void fetch("/api/premium", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({}) })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((p) => {
+          if (p?.settings?.premiumActive) {
+            payloadRef.current = p as SettingsPayload;
+            setPayload(p as SettingsPayload);
+          }
+        })
+        .catch(() => undefined);
+    };
+    const id = setTimeout(renew, 15000); // laisser le serveur démarrer tranquillement
+    return () => {
+      clearTimeout(id);
+    };
+  }, [payload?.settings.premiumExpires, payload?.settings.premiumActive]);
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       const root = document.documentElement;

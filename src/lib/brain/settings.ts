@@ -4,7 +4,7 @@ import { settings } from "@/db/schema";
 import { DEFAULT_ADDRESS_BY, DEFAULT_HONORIFIC, DEFAULT_USER_NAME } from "@/lib/defaults";
 import { writeDesktopFiles } from "@/lib/desktop/profile";
 import { getProvider, PROVIDERS, type ProviderId } from "@/lib/providers";
-import { hasPremium } from "@/lib/premium";
+import { hasPremium, premiumExpiry } from "@/lib/premium";
 import { isDesktop } from "@/lib/runtime";
 import type { PublicSettings } from "@/lib/types";
 import { capitalize } from "./text";
@@ -178,6 +178,7 @@ export function toPublicSettings(s: SettingsRow): PublicSettings {
     apiKeyPreview: preview(effective),
     aiKeyPreviews,
     premiumActive: hasPremium(s),
+    premiumExpires: premiumExpiry(s),
     visionFace: parseVisionFace(s.visionFace),
     pcControl: s.pcControl,
     bootMusic: s.bootMusic,

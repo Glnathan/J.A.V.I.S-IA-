@@ -1,0 +1,1 @@
+ALTER TABLE "settings" ADD COLUMN "premium_token" text DEFAULT '' NOT NULL;

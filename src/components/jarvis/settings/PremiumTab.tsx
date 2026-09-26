@@ -3,7 +3,7 @@
 import { CheckCircle2, Crown, Database, Download, ExternalLink, HardDriveDownload, Loader2, RefreshCw, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { SettingsPayload } from "@/lib/types";
-import { PREMIUM_PRICE } from "@/lib/premium";
+import { PREMIUM_PRICE } from "@/lib/price";
 
 interface UpdateCheck {
   current: string;
@@ -35,19 +35,20 @@ export default function PremiumTab({ payload, onSaved }: Props) {
     setBusy("key");
     setMsg(null);
     try {
-      const r = await fetch("/api/settings", {
-        method: "PUT",
+      // Activation en ligne : le service de licences délivre un jeton signé.
+      const r = await fetch("/api/premium", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ premiumKey: key.trim() }),
+        body: JSON.stringify({ key: key.trim() }),
       });
-      const j = (await r.json().catch(() => ({}))) as { error?: string };
-      if (!r.ok) {
-        setMsg({ ok: false, text: j.error ?? "Clé refusée." });
+      const j = (await r.json().catch(() => ({}))) as { error?: string; expires?: string; premiumActive?: boolean };
+      if (!r.ok || !j.premiumActive) {
+        setMsg({ ok: false, text: j.error ?? "Clé refusée par le service de licences." });
         return;
       }
       onSaved(j as SettingsPayload);
       setKey("");
-      setMsg({ ok: true, text: premium ? "Clé mise à jour." : "Bienvenue dans l'édition Premium !" });
+      setMsg({ ok: true, text: "Bienvenue dans l'édition Premium ! Licence vérifiée et active." });
     } catch {
       setMsg({ ok: false, text: "Le serveur ne répond pas." });
     } finally {
@@ -183,19 +184,26 @@ export default function PremiumTab({ payload, onSaved }: Props) {
           </button>
         </div>
         {premium && (
-          <button
-            type="button"
-            className="text-xs text-red-300 underline underline-offset-2"
-            onClick={() => {
-              setKey("");
-              void fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ premiumKey: "" }) })
-                .then((r) => r.json())
-                .then((p) => onSaved(p as SettingsPayload))
-                .catch(() => null);
-            }}
-          >
-            Désactiver la licence
-          </button>
+          <div className="space-y-1">
+            <p className="text-[11px] leading-snug text-slate-500">
+              Licence vérifiée en ligne — valable jusqu&apos;au{" "}
+              {payload.settings.premiumExpires ? new Date(payload.settings.premiumExpires).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "?"}
+              , renouvelée automatiquement en arrière-plan.
+            </p>
+            <button
+              type="button"
+              className="text-xs text-red-300 underline underline-offset-2"
+              onClick={() => {
+                setKey("");
+                void fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ premiumKey: "" }) })
+                  .then((r) => r.json())
+                  .then((p) => onSaved(p as SettingsPayload))
+                  .catch(() => null);
+              }}
+            >
+              Désactiver la licence
+            </button>
+          </div>
         )}
       </div>
 
