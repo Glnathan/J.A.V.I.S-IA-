@@ -44,16 +44,23 @@ export function parseVoicePrint(raw: string): { descriptors: number[][] } | null
   }
 }
 
-/** Visage inscrit (JSON en base) : { name, descriptors } ou null si absent/corrompu. */
-export function parseVisionFace(raw: string): { name: string; descriptors: number[][] } | null {
+/** Visages inscrits (JSON en base) : [{ name, descriptors }, …] — l'ancien format
+ *  mono-visage { name, descriptors } est accepté et converti. null si absent/corrompu. */
+export function parseVisionFace(raw: string): { name: string; descriptors: number[][] }[] | null {
   try {
-    const v = JSON.parse(raw) as { name?: unknown; descriptors?: unknown };
-    if (typeof v.name !== "string" || !Array.isArray(v.descriptors)) return null;
-    const descriptors = v.descriptors.filter(
-      (d): d is number[] => Array.isArray(d) && d.length === 128 && d.every((n) => typeof n === "number"),
-    );
-    if (!descriptors.length) return null;
-    return { name: v.name.slice(0, 40), descriptors: descriptors.slice(0, 5) };
+    const v = JSON.parse(raw) as { name?: unknown; descriptors?: unknown }[] | { name?: unknown; descriptors?: unknown };
+    const list = Array.isArray(v) ? v : [v];
+    const faces: { name: string; descriptors: number[][] }[] = [];
+    for (const item of list) {
+      if (typeof item?.name !== "string" || !Array.isArray(item?.descriptors)) continue;
+      const descriptors = item.descriptors.filter(
+        (d): d is number[] => Array.isArray(d) && d.length === 128 && d.every((n) => typeof n === "number"),
+      );
+      if (!descriptors.length) continue;
+      faces.push({ name: item.name.slice(0, 40), descriptors: descriptors.slice(0, 5) });
+      if (faces.length >= 6) break;
+    }
+    return faces.length ? faces : null;
   } catch {
     return null;
   }

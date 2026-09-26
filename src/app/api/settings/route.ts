@@ -229,12 +229,18 @@ const voiceGate = bool("voiceGate");
     else return Response.json({ error: "Clé Premium invalide. Format attendu : JARVIS-XXXXX-XXXXX-XX." }, { status: 400 });
   }
 
-  // Vision (édition Premium) : inscription du visage pour la reconnaissance.
+  // Vision (édition Premium) : visages inscrits pour la reconnaissance.
+  // Plus d'un visage (famille) = Premium ; le premier visage reste libre.
   const visionFace = str("visionFace", 200000);
   if (visionFace !== undefined) {
     if (visionFace === "") patch.visionFace = "";
     else {
-      if (!parseVisionFace(visionFace)) return Response.json({ error: "Visage invalide (nom ou descripteurs)." }, { status: 400 });
+      const faces = parseVisionFace(visionFace);
+      if (!faces) return Response.json({ error: "Visage invalide (nom ou descripteurs)." }, { status: 400 });
+      if (faces.length > 1) {
+        const s = await getSettings();
+        if (!hasPremium(s)) return Response.json({ error: "Inscrire les visages de la famille est réservé à l'édition Premium." }, { status: 403 });
+      }
       patch.visionFace = visionFace;
     }
   }

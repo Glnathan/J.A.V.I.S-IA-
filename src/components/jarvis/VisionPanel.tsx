@@ -2,7 +2,7 @@
 
 import { Camera, Eye, Loader2, ScanFace, Video, VideoOff, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
-import { enrollFace, recognizeFrame, type FaceState, type StoredFace } from "@/lib/client/vision-face";
+import { enrollFace, recognizeFrame, removeFace, type FaceState, type StoredFace } from "@/lib/client/vision-face";
 
 interface Props {
   onClose: () => void;
@@ -13,8 +13,8 @@ interface Props {
   /** Analyse IA d'une image (envoyée au chat, fournie par JarvisApp). */
   onDescribe: (image: string) => void;
   premium: boolean;
-  /** Visage inscrit (reconnaissance) et prénom (inscription). */
-  faceData: StoredFace | null;
+  /** Visages inscrits (reconnaissance, famille) et prénom (inscription). */
+  faceData: StoredFace[] | null;
   userName: string;
 }
 
@@ -132,6 +132,8 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
   const [faceOn, setFaceOn] = useState(false);
   const [face, setFace] = useState<FaceState>({ status: "idle" });
   const [enrolling, setEnrolling] = useState(false);
+  const [newName, setNewName] = useState(userName);
+  const [faceMsg, setFaceMsg] = useState<string | null>(null);
   const motionLabelRef = useRef<HTMLSpanElement | null>(null);
 
   // Callbacks dans des refs : la boucle d'animation ne doit jamais redemarrer à cause d'un re-rendu.
@@ -295,9 +297,23 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
     if (!canvasRef.current) return;
     setEnrolling(true);
     setFace({ status: "loading" });
-    const r = await enrollFace(canvasRef.current, userName);
+    const r = await enrollFace(canvasRef.current, newName, faceData ?? []);
     setFace(r);
+    setFaceMsg(
+      r.status === "error"
+        ? (r.message ?? "Échec de l'inscription.")
+        : r.status === "no-face"
+          ? "Aucun visage détecté — placez-vous dans le cadre, avec assez de lumière."
+          : r.status === "recognized"
+            ? `Visage « ${r.name} » inscrit.`
+            : null,
+    );
     setEnrolling(false);
+  };
+
+  const remove = async (name: string) => {
+    const r = await removeFace(name, faceData ?? []);
+    setFaceMsg(r.status === "error" ? (r.message ?? "Échec de la suppression.") : `Visage « ${name} » retiré.`);
   };
 
   const sideLabel = "AUCUN MOUVEMENT";
@@ -380,13 +396,40 @@ export default function VisionPanel({ onClose, frameRef, onGreet, onDescribe, pr
         </div>
 
         {premium && (
-          <footer className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-            <Camera size={13} className="text-hud" />
-            <span>Dites « Jarvis, décris ce que tu vois » (caméra) ou « décris mon écran » (écran).</span>
-            <button type="button" className="hud-btn !h-7 shrink-0" onClick={() => void enroll()} disabled={enrolling}>
-              {enrolling ? <Loader2 size={11} className="animate-spin" /> : <Video size={11} />} Inscrire mon visage
-            </button>
-            <span className="font-mono text-[10px] text-hud/60">{faceLabel}</span>
+          <footer className="mt-3 space-y-2 text-xs text-slate-400">
+            <div className="flex flex-wrap items-center gap-2">
+              <Camera size={13} className="text-hud" />
+              <span>Dites « Jarvis, décris ce que tu vois » (caméra) ou « décris mon écran » (écran).</span>
+              <span className="font-mono text-[10px] text-hud/60">{faceLabel}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 rounded border border-hud/15 bg-black/20 p-2">
+              <ScanFace size={13} className="text-hud" />
+              <input
+                className="hud-field !h-7 w-36 text-xs"
+                value={newName}
+                placeholder="Prénom (ex. Nathan)"
+                onChange={(e) => setNewName(e.target.value)}
+              />
+              <button type="button" className="hud-btn !h-7" onClick={() => void enroll()} disabled={enrolling}>
+                {enrolling ? <Loader2 size={11} className="animate-spin" /> : <Video size={11} />} Inscrire ce visage
+              </button>
+              {faceData && faceData.length > 0 && (
+                <span className="flex flex-wrap items-center gap-1">
+                  {faceData.map((f) => (
+                    <span key={f.name} className="flex items-center gap-1 rounded border border-hud/20 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">
+                      {f.name}
+                      <button type="button" className="text-red-300 hover:text-red-200" title={`Retirer ${f.name}`} onClick={() => void remove(f.name)}>
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] leading-snug text-slate-500">
+              Inscrivez jusqu&apos;à 6 visages — la famille commande JARVIS aussi, et il salue chacun par son prénom.
+              {faceMsg && <span className="ml-1 text-slate-400">{faceMsg}</span>}
+            </p>
           </footer>
         )}
       </div>

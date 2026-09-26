@@ -133,7 +133,8 @@ export interface PublicSettings {
   /** Édition Premium active (clé de licence valide). */
   premiumActive: boolean;
   /** Visage inscrit pour la reconnaissance (édition Premium), null si aucun. */
-  visionFace: { name: string; descriptors: number[][] } | null;
+  /** Visages inscrits pour la reconnaissance (famille) : null = aucun. */
+  visionFace: { name: string; descriptors: number[][] }[] | null;
   /** Veille faciale : le mot d'activation ne compte que si le visage inscrit est devant la caméra. */
   visionGate: boolean;
   /** Empreinte vocale inscrite (édition Premium), null si aucune. */

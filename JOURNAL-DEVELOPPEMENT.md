@@ -3,6 +3,18 @@
 Historique complet du projet, tenu à jour à chaque version. Ce document est la
 trace de tout le travail accompli, pour s'y retrouver plus tard.
 
+## 1.27.0 — Visages de la famille (Premium)
+- La veille faciale accepte jusqu'à 6 visages inscrits (contre 1 avant) :
+  conjoint, enfants… chacun commande JARVIS, et il salue la personne reconnue
+  par son prénom (« Oui, Manon ? ») au moment du mot d'activation.
+- Format de stockage visionFace : tableau [{ name, descriptors }, …] ;
+  l'ancien format mono-visage est converti automatiquement à la lecture
+  (aucune migration nécessaire). Plus d'un visage = Premium (route PUT gated).
+- Panneau Vision : champ prénom + « Inscrire ce visage » (remplace le profil
+  du même nom ou l'ajoute), liste des profils avec retrait en un clic.
+- recognizeFrame compare aux descripteurs de tous les profils (meilleur
+  match) ; checkFaceNow renvoie le nom reconnu (string) au lieu d'un booléen.
+- Reconnaissance toujours 100% locale (face-api WASM, aucun envoi d'image).
 ## 1.26.0 — Transcription 100% locale (Premium, version PC)
 - Whisper s'installe sur le PC et transcrit la voix entièrement en local :
   aucun audio ne quitte jamais la machine, et ça marche internet coupé.

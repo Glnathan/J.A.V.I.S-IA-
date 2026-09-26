@@ -56,29 +56,56 @@ function distance(a: ArrayLike<number>, b: ArrayLike<number>): number {
   return Math.sqrt(sum);
 }
 
-/** Cherche un visage dans l'image et le compare au visage inscrit. */
-export async function recognizeFrame(canvas: HTMLCanvasElement, stored: StoredFace | null): Promise<FaceState> {
-  if (!stored) return { status: "not-enrolled" };
+/** Cherche un visage dans l'image et le compare aux visages inscrits (famille). */
+export async function recognizeFrame(canvas: HTMLCanvasElement, faces: StoredFace[] | null): Promise<FaceState> {
+  if (!faces || !faces.length) return { status: "not-enrolled" };
   const faceapi = await ensureModels();
   if (!faceapi) return { status: "error", message: "Modèles de reconnaissance introuvables." };
   const d = await descriptorOf(faceapi, canvas);
   if (!d) return { status: "no-face" };
   let best = Infinity;
-  for (const ref of stored.descriptors) {
-    const dist = distance(d, ref);
-    if (dist < best) best = dist;
+  let bestName = "";
+  for (const face of faces) {
+    for (const ref of face.descriptors) {
+      const dist = distance(d, ref);
+      if (dist < best) {
+        best = dist;
+        bestName = face.name;
+      }
+    }
   }
   if (best < 0.5) {
     const now = Date.now();
     const greet = now - lastGreetAt > 120000;
     if (greet) lastGreetAt = now;
-    return { status: "recognized", name: stored.name, greet };
+    return { status: "recognized", name: bestName, greet };
   }
   return { status: "unknown" };
 }
 
-/** Inscrit le visage de l'utilisateur : trois captures, moyenne conservée côté serveur. */
-export async function enrollFace(canvas: HTMLCanvasElement, name: string): Promise<FaceState> {
+const MAX_PROFILES = 6;
+
+async function saveFaces(faces: StoredFace[]): Promise<FaceState> {
+  try {
+    const r = await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visionFace: JSON.stringify(faces) }),
+    });
+    if (!r.ok) {
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      return { status: "error", message: j.error ?? "Enregistrement refusé par le serveur." };
+    }
+  } catch {
+    return { status: "error", message: "Le serveur ne répond pas." };
+  }
+  lastGreetAt = Date.now();
+  return { status: "idle" };
+}
+
+/** Inscrit un visage : trois captures, moyenne conservée côté serveur.
+ *  Met à jour le profil portant le même nom, sinon l'ajoute (jusqu'à 6 profils). */
+export async function enrollFace(canvas: HTMLCanvasElement, name: string, existing: StoredFace[]): Promise<FaceState> {
   const faceapi = await ensureModels();
   if (!faceapi) return { status: "error", message: "Modèles de reconnaissance introuvables." };
   const descriptors: number[][] = [];
@@ -88,22 +115,24 @@ export async function enrollFace(canvas: HTMLCanvasElement, name: string): Promi
     if (!d) return { status: "no-face" };
     descriptors.push(Array.from(d));
   }
-  const face: StoredFace = { name: name.trim().slice(0, 40) || "Monsieur", descriptors };
-  try {
-    const r = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ visionFace: JSON.stringify(face) }),
-    });
-    if (!r.ok) return { status: "error", message: "Enregistrement refusé par le serveur." };
-  } catch {
-    return { status: "error", message: "Le serveur ne répond pas." };
-  }
-  lastGreetAt = Date.now();
-  return { status: "recognized", name: face.name, greet: false };
+  const clean = name.trim().slice(0, 40) || "Monsieur";
+  const next = existing.filter((f) => f.name !== clean);
+  if (next.length >= MAX_PROFILES && next.length === existing.length)
+    return { status: "error", message: `Maximum ${MAX_PROFILES} visages inscrits.` };
+  next.push({ name: clean, descriptors });
+  const r = await saveFaces(next);
+  if (r.status === "error") return r;
+  return { status: "recognized", name: clean, greet: false };
 }
 
-/** Visage inscrit dans les réglages publics (null si aucun). */
-export function storedFaceOf(settings: PublicSettings | undefined): StoredFace | null {
+/** Retire un visage inscrit (par nom). */
+export async function removeFace(name: string, existing: StoredFace[]): Promise<FaceState> {
+  const next = existing.filter((f) => f.name !== name);
+  if (next.length === existing.length) return { status: "error", message: "Visage introuvable." };
+  return saveFaces(next);
+}
+
+/** Visages inscrits dans les réglages publics (null si aucun). */
+export function storedFaceOf(settings: PublicSettings | undefined): StoredFace[] | null {
   return settings?.visionFace ?? null;
 }

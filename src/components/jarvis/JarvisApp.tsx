@@ -418,7 +418,7 @@ export default function JarvisApp() {
   const faceGateNoticeRef = useRef(0);
   const voiceGateNoticeRef = useRef(0);
   /** Visage pré-chauffé pendant la transcription (résultat réutilisé par handleWake). */
-  const pendingFaceRef = useRef<Promise<boolean | null> | null>(null);
+  const pendingFaceRef = useRef<Promise<string | false | null> | null>(null);
 
   /** Action d'écran en attente de confirmation (prise de contrôle, Premium). */
   const pendingControlRef = useRef<ControlProposal | null>(null);
@@ -451,10 +451,11 @@ export default function JarvisApp() {
   const visionGateActive = () =>
     Boolean(payloadRef.current?.settings.visionGate && payloadRef.current?.settings.visionFace && wakeRef.current);
 
-  /** Vérification du visage à la demande (caméra ouverte brièvement, puis relâchée). */
-  const checkFaceNow = async (): Promise<boolean | null> => {
-    const face = payloadRef.current?.settings.visionFace ?? null;
-    if (!face) return null;
+  /** Vérification du visage à la demande (caméra ouverte brièvement, puis relâchée).
+   *  Renvoie le nom reconnu, false si aucun visage inscrit ne correspond, null si impossible. */
+  const checkFaceNow = async (): Promise<string | false | null> => {
+    const faces = payloadRef.current?.settings.visionFace ?? null;
+    if (!faces || !faces.length) return null;
     let stream: MediaStream | null = null;
     let video: HTMLVideoElement | null = null;
     try {
@@ -469,8 +470,8 @@ export default function JarvisApp() {
       canvas.width = 320;
       canvas.height = 240;
       canvas.getContext("2d")?.drawImage(video, 0, 0, 320, 240);
-      const r = await recognizeFrame(canvas, face);
-      return r.status === "recognized";
+      const r = await recognizeFrame(canvas, faces);
+      return r.status === "recognized" ? r.name : false;
     } catch {
       return null; // caméra occupée ou refusée : vérification impossible
     } finally {
@@ -510,12 +511,13 @@ export default function JarvisApp() {
     if (m) {
       // Veille faciale : une brève vérification du visage au moment du mot
       // d'activation (la caméra est ouverte puis relâchée immédiatement).
+      let faceName: string | null = null;
       if (visionGateActive()) {
         setStatus("thinking");
         const pending = pendingFaceRef.current;
         const faceOk = pending ? await pending : await checkFaceNow();
         setStatus((s) => (s === "thinking" ? "idle" : s));
-        if (faceOk !== true) {
+        if (!faceOk) {
           if (now - faceGateNoticeRef.current > 60000) {
             faceGateNoticeRef.current = now;
             pushNotice(faceOk === null
@@ -525,6 +527,7 @@ export default function JarvisApp() {
           setInterim("");
           return;
         }
+        if (typeof faceOk === "string") faceName = faceOk;
       }
       const after = finalText.slice(m.index + m[0].length).replace(/^[\s,.!?;:-]+/, "").trim();
       const before = finalText.slice(0, m.index).replace(/[\s,.!?;:-]+$/, "").trim();
@@ -539,8 +542,10 @@ export default function JarvisApp() {
         setAwaiting(true);
         setStatus("listening");
         sfx.wake();
+        // Salutation personnalisée : le visage reconnu salue par son nom.
         const { sir } = addressOf(payloadRef.current);
-        speak(pick([`Oui, ${sir} ?`, "Je vous écoute.", `À votre service, ${sir}.`]));
+        const who = faceName ?? sir;
+        speak(pick([`Oui, ${who} ?`, "Je vous écoute.", `À votre service, ${who}.`]));
       }
     } else if (awaitingNow) {
       awaitingUntilRef.current = 0;
