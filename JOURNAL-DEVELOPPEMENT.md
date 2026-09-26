@@ -3,6 +3,16 @@
 Historique complet du projet, tenu à jour à chaque version. Ce document est la
 trace de tout le travail accompli, pour s'y retrouver plus tard.
 
+## Vitrine de vente (README) — 26/09
+- README réécrit en page de vente : pitch, tableau de commandes exemples,
+  section confidentialité (verrou vocal/facial locaux, transcription locale,
+  clés sur le PC), comparatif Standard gratuit / Premium 19,99 EUR à vie,
+  installation en 2 minutes. Documentation technique conservée en dessous.
+- Securite : generer-cle.bat et scripts/generer-cle.mjs retirés du dépôt public
+  (git rm --cached + .gitignore, fichiers conservés en local). La validation de
+  licence reste hors ligne (checksum mod 97) : un service en ligne reste à faire
+  pour une vraie protection.
+
 ## 1.27.0 — Visages de la famille (Premium)
 - La veille faciale accepte jusqu'à 6 visages inscrits (contre 1 avant) :
   conjoint, enfants… chacun commande JARVIS, et il salue la personne reconnue
