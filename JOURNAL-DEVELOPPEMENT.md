@@ -13,6 +13,17 @@ trace de tout le travail accompli, pour s'y retrouver plus tard.
   licence reste hors ligne (checksum mod 97) : un service en ligne reste à faire
   pour une vraie protection.
 
+## Déploiement licences (26/09 soir) — FAIT
+- Service en ligne sur https://jarvis-licences.vercel.app (Vercel, projet jarvis-licences,
+  racine licences/, variables SIGNING_KEY + KEYS_JSON). Fonction api/activate.js en
+  CJS classique (req/res) : le format ESM/mjs gelait les invocations sous Fluid
+  Compute, et .cjs n est pas reconnu par le zero-config. Chargement de clé privée
+  robuste (PEM littéral 
+ ou DER reconstruit).
+- Vérifié bout en bout : jeton du service validé par le vrai verifyPremiumToken
+  (expire 26/09/2027). 1.28.0 installée chez Nathan, Premium réactivé
+  automatiquement via POST /api/premium (premiumActive: true).
+
 ## 1.28.0 — Licences Premium en ligne (jeton signé Ed25519)
 - Nouveau dossier licences/ : service de licences déployable sur Vercel (zéro
   dépendance, fonction api/activate.js). Liste des clés vendues dans la variable
