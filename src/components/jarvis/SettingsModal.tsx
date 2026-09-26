@@ -182,6 +182,7 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
               onMicNeeded={onMicNeeded}
               onMicRelease={onMicRelease}
               onBootMusicChanged={refreshPayload}
+              onLocalSttChanged={() => void refreshPayload()}
             />
           )}
           {tab === "ai" && (

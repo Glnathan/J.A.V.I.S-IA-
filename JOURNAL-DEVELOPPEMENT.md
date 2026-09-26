@@ -3,6 +3,23 @@
 Historique complet du projet, tenu à jour à chaque version. Ce document est la
 trace de tout le travail accompli, pour s'y retrouver plus tard.
 
+## 1.26.0 — Transcription 100% locale (Premium, version PC)
+- Whisper s'installe sur le PC et transcrit la voix entièrement en local :
+  aucun audio ne quitte jamais la machine, et ça marche internet coupé.
+- Environnement Python dédié et PERSISTANT dans %APPDATA%\JARVIS\stt-local
+  (Python 3.12 embarqué + pip + faster-whisper + modèle small int8, ~1 Go au
+  total) : survit aux mises à jour de JARVIS, indépendant du Python des
+  plugins. Choix retenu contre le Nemotron NVIDIA (7 Go + carte NVIDIA
+  requise) : même résultat 100% local pour un septième du poids.
+- Installation en un clic depuis Paramètres → Voix & micro (tâche de fond
+  avec état consultable : Python → pip → Whisper → modèle ; ~1 Go une fois).
+- Worker persistant (python/stt_worker.py) : modèle chargé une seule fois,
+  protocole JSON lignes, HF_HUB_OFFLINE=1 en fonctionnement (zéro réseau).
+- Moteur « Locale » sélectionnable (Premium) avec repli cloud automatique si
+  le moteur local échoue. Le verrou vocal vérifie toujours la voix en local
+  AVANT toute transcription — privacy totale de bout en bout.
+- Routes : GET /api/stt?action=local-status, PUT ?action=local-install,
+  POST audio (serveur choisit local ou cloud selon sttEngine).
 ## 1.25.3 — Correctif quota Gmail, la vraie cause
 - 50 mails = 51 requêtes = 255 unités de quota Google, dont la limite est de
   250/minute : chaque chargement complet dépassait mathématiquement le quota,

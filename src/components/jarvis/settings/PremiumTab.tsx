@@ -288,6 +288,7 @@ export default function PremiumTab({ payload, onSaved }: Props) {
           <li>Coffre Obsidian : « Jarvis, note dans Obsidian… » — vos notes Markdown, sur tous vos appareils</li>
           <li>Scan de sécurité : « Jarvis, lance un scan antivirus » — processus et démarrage analysés, rapport parlé</li>
           <li>Voix HD ElevenLabs : des réponses d&apos;un réalisme studio</li>
+          <li>Transcription 100% locale : Whisper sur votre PC, l&apos;audio ne quitte jamais votre machine</li>
           <li>Apparences exclusives : « mode nanotech », « mode Ultron », « mode furtif »</li>
           <li>Sauvegarde quotidienne automatique, restauration en un clic</li>
           <li>Journal des connexions distantes (Paramètres → Mobile)</li>

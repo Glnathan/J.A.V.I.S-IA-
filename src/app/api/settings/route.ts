@@ -101,8 +101,14 @@ const voiceGate = bool("voiceGate");
       if (hasPremium(s)) patch.voiceGate = true;
     }
   }
-  const sttEngine = oneOf("sttEngine", ["auto", "browser", "whisper"] as const);
-  if (sttEngine) patch.sttEngine = sttEngine;
+  const sttEngine = oneOf("sttEngine", ["auto", "browser", "whisper", "local"] as const);
+  if (sttEngine) {
+    if (sttEngine === "local") {
+      const s = await getSettings();
+      if (!hasPremium(s)) return Response.json({ error: "La transcription 100% locale est réservée à l'édition Premium." }, { status: 403 });
+    }
+    patch.sttEngine = sttEngine;
+  }
   const sttProvider = oneOf("sttProvider", ["groq", "openai"] as const);
   if (sttProvider) {
     patch.sttProvider = sttProvider;

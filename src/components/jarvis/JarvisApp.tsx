@@ -565,11 +565,11 @@ export default function JarvisApp() {
   /** "browser" = Web Speech API (Chrome/Edge) ; "whisper" = server-side transcription (all browsers). */
   const currentEngine = (mode: "ptt" | "wake" = "ptt"): "browser" | "whisper" => {
     const p = payloadRef.current;
-    // Verrou vocal : il faut l'audio des phrases, seul Whisper le fournit.
+    // Verrou vocal : il faut l'audio des phrases, seul Whisper (cloud ou local) le fournit.
     if (mode === "wake" && voiceGateActive() && p?.stt.available) return "whisper";
     const pref = p?.settings.sttEngine ?? "auto";
     const whisperOk = Boolean(p?.stt.available);
-    if (pref === "whisper") return whisperOk ? "whisper" : "browser";
+    if (pref === "whisper" || pref === "local") return whisperOk ? "whisper" : "browser";
     if (pref === "browser" || !whisperOk) return "browser";
     return engineFailedRef.current || !getRecognitionCtor() || browserInfo().brave ? "whisper" : "browser";
   };

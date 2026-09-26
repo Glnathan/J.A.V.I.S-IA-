@@ -199,7 +199,7 @@ export interface SettingsPayload {
   pc: { available: boolean; platform: string };
   desktop: DesktopInfo;
   bootMusicFile: { name: string; size: number } | null;
-  stt: { available: boolean; provider: string; origin: "settings" | "ai" | "env" | null };
+  stt: { available: boolean; provider: string; origin: "settings" | "ai" | "env" | null; local: boolean };
   home: { configured: boolean };
 }
 

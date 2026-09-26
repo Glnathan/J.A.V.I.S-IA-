@@ -1,7 +1,7 @@
 "use client";
 
-import { ExternalLink, KeyRound, Loader2, Mic, Trash2, UserCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Download, ExternalLink, KeyRound, Loader2, Mic, Trash2, UserCheck } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SettingsPayload } from "@/lib/types";
 import { VoiceCapture } from "@/lib/client/voice-capture";
 import { embedWav, loadVoiceModel, similarityOf } from "@/lib/client/voice-print";
@@ -23,6 +23,7 @@ interface Props {
   onClearElevenKey: () => void;
   onTestVoice: (opts: { voiceName: string; rate: number; pitch: number }) => void;
   onBootMusicChanged: () => Promise<void>;
+  onLocalSttChanged: () => void;
   onMicNeeded: () => void;
   onMicRelease: () => void;
 }
@@ -31,11 +32,101 @@ const ENGINES = [
   { id: "auto", label: "Automatique", desc: "Navigateur, avec bascule sur Whisper en cas de problème" },
   { id: "browser", label: "Navigateur", desc: "Chrome ou Edge, gratuit, sans clé" },
   { id: "whisper", label: "Whisper", desc: "Très fiable, tous navigateurs (clé Groq gratuite)" },
+  { id: "local", label: "Locale 100% privé (Premium)", desc: "Whisper sur votre PC : l'audio ne quitte jamais votre machine" },
 ];
 
 const ORIGIN: Record<string, string> = { settings: "clé dédiée", ai: "clé de l'IA", env: "clé système" };
 
-export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey, onClearSttKey, elevenKey, setElevenKey, onClearElevenKey, onTestVoice, onBootMusicChanged, onMicNeeded, onMicRelease }: Props) {
+interface LocalStatus {
+  installed: boolean;
+  phase: "idle" | "python" | "pip" | "whisper" | "model" | "done" | "error";
+  log?: string[];
+  error?: string;
+}
+
+const PHASES: Record<LocalStatus["phase"], string> = {
+  idle: "non installé",
+  python: "téléchargement de Python…",
+  pip: "installation de pip…",
+  whisper: "installation de Whisper (~300 Mo)…",
+  model: "téléchargement du modèle (~460 Mo)…",
+  done: "prêt",
+  error: "échec",
+};
+
+/** Carte d'installation et d'état du moteur de transcription 100% locale. */
+function LocalSttCard({ installed, premium, onInstalled }: { installed: boolean; premium: boolean; onInstalled: () => void }) {
+  const [status, setStatus] = useState<LocalStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const installing = status !== null && status.phase !== "idle" && status.phase !== "done" && status.phase !== "error" && !status.installed;
+
+  const poll = useCallback(async () => {
+    try {
+      const r = await fetch("/api/stt?action=local-status", { cache: "no-store" });
+      if (r.ok) setStatus((await r.json()) as LocalStatus);
+    } catch {
+      /* hors ligne */
+    }
+  }, []);
+
+  useEffect(() => {
+    void poll();
+  }, [poll]);
+
+  useEffect(() => {
+    if (!installing) return;
+    const id = setInterval(poll, 3000);
+    return () => clearInterval(id);
+  }, [installing, poll]);
+
+  useEffect(() => {
+    if (status?.installed && !installed) onInstalled();
+  }, [status, installed, onInstalled]);
+
+  const start = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/stt?action=local-install", { method: "PUT" });
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      if (!r.ok) setMsg(j.error ?? "Lancement impossible.");
+      else await poll();
+    } catch {
+      setMsg("Serveur injoignable.");
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className={`flex items-center gap-1 text-sm ${installed ? "text-emerald-300" : installing ? "text-hud" : "text-amber-200"}`}>
+          {installing ? <Loader2 size={13} className="animate-spin" /> : installed ? "✓" : "⚠"}
+          {installed ? "Moteur local installé" : installing ? PHASES[status?.phase ?? "idle"] : "Moteur local non installé"}
+        </span>
+        {!installed && (
+          <button type="button" className="hud-btn" onClick={() => void start()} disabled={busy || installing || !premium}>
+            <Download size={13} /> {installing ? "Installation en cours…" : "Installer (~1 Go, une seule fois)"}
+          </button>
+        )}
+      </div>
+      {!premium && <p className="text-xs text-slate-400">Réservé à l&apos;édition Premium.</p>}
+      {status?.log && status.log.length > 0 && (
+        <p className="text-[11px] leading-snug text-slate-500">{status.log.slice(-2).join(" · ")}</p>
+      )}
+      {status?.error && <p className="text-xs text-red-300">✗ {status.error}</p>}
+      {msg && <p className="text-xs text-amber-200">{msg}</p>}
+      {installed && (
+        <p className="text-[11px] leading-snug text-slate-500">
+          Survit aux mises à jour de JARVIS. Repli automatique sur Whisper cloud si le moteur local échoue.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey, onClearSttKey, elevenKey, setElevenKey, onClearElevenKey, onTestVoice, onBootMusicChanged, onLocalSttChanged, onMicNeeded, onMicRelease }: Props) {
   const s = payload.settings;
   const frVoices = useMemo(() => voices.filter((v) => v.lang?.toLowerCase().startsWith("fr")), [voices]);
   const otherVoices = useMemo(() => voices.filter((v) => !v.lang?.toLowerCase().startsWith("fr")), [voices]);
@@ -210,19 +301,34 @@ export default function VoiceTab({ form, set, payload, voices, sttKey, setSttKey
   return (
     <div className="space-y-5">
       <Card title="Reconnaissance vocale — JARVIS vous entend" tone="accent">
-        <div className="grid gap-2 sm:grid-cols-3">
-          {ENGINES.map((e) => (
-            <button
-              key={e.id}
-              type="button"
-              onClick={() => set("sttEngine", e.id)}
-              className={`rounded border p-3 text-left transition ${form.sttEngine === e.id ? "border-hud bg-hud/15 shadow-[0_0_12px_rgb(var(--hud-rgb)/0.25)]" : "border-hud/15 bg-black/20 hover:border-hud/40"}`}
-            >
-              <span className="block text-sm text-white">{e.label}</span>
-              <span className="block text-[11px] leading-snug text-slate-400">{e.desc}</span>
-            </button>
-          ))}
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {ENGINES.map((e) => {
+            const localLocked = e.id === "local" && (!s.premiumActive || !payload.stt.local);
+            return (
+              <button
+                key={e.id}
+                type="button"
+                onClick={() => !localLocked && set("sttEngine", e.id)}
+                disabled={localLocked}
+                className={`rounded border p-3 text-left transition ${form.sttEngine === e.id ? "border-hud bg-hud/15 shadow-[0_0_12px_rgb(var(--hud-rgb)/0.25)]" : localLocked ? "border-hud/10 bg-black/10 opacity-50" : "border-hud/15 bg-black/20 hover:border-hud/40"}`}
+              >
+                <span className="block text-sm text-white">{e.label}</span>
+                <span className="block text-[11px] leading-snug text-slate-400">
+                  {localLocked ? (!s.premiumActive ? "Réservé à l'édition Premium" : "Non installé — voir ci-dessous") : e.desc}
+                </span>
+              </button>
+            );
+          })}
         </div>
+
+      <Card title="Transcription 100% locale (Premium, version PC)">
+        <p className="mb-3 text-xs leading-relaxed text-slate-400">
+          Whisper s'installe sur votre PC et transcrit votre voix entièrement en local : aucun audio ne quitte jamais votre
+          machine, même quand internet est coupé. Le verrou vocal reste actif (votre voix est vérifiée en local avant la
+          transcription). Installation en une fois (~1 Go), survit aux mises à jour de JARVIS.
+        </p>
+        <LocalSttCard installed={payload.stt.local} premium={s.premiumActive} onInstalled={onLocalSttChanged} />
+      </Card>
 
         <div className="space-y-3 rounded border border-hud/15 bg-black/20 p-3">
           <div className="flex flex-wrap items-center gap-2 text-sm">

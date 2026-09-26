@@ -7,6 +7,7 @@ import { detectEnvProviders, resolveAI } from "./llm";
 import { pcControlAvailable } from "./pc";
 import { getSettings, toPublicSettings } from "./settings";
 import { resolveSTT } from "./stt";
+import { sttLocalInstalled } from "./sttLocal";
 
 export async function buildSettingsPayload(): Promise<SettingsPayload> {
   const s = await getSettings();
@@ -28,7 +29,9 @@ export async function buildSettingsPayload(): Promise<SettingsPayload> {
       pluginsDir: pluginsDir(),
     },
     bootMusicFile: music ? { name: music.name, size: music.size } : null,
-    stt: stt ? { available: true, provider: stt.provider, origin: stt.origin } : { available: false, provider: s.sttProvider, origin: null },
+    stt: stt
+      ? { available: true, provider: stt.provider, origin: stt.origin, local: sttLocalInstalled() }
+      : { available: sttLocalInstalled(), provider: "local", origin: null, local: sttLocalInstalled() },
     home: { configured: Boolean(haConfig(s)) },
   };
 }
