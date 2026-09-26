@@ -2076,6 +2076,8 @@ export default function JarvisApp() {
           voices={voices}
           canInstall={Boolean(installEvt)}
           initialTab={settingsTab}
+          theme={theme}
+          onTheme={applyTheme}
           onInstall={() => void install()}
           onClose={() => setSettingsTab(null)}
           onSaved={onSettingsSaved}

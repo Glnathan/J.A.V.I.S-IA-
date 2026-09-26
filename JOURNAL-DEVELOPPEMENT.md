@@ -13,6 +13,12 @@ trace de tout le travail accompli, pour s'y retrouver plus tard.
   licence reste hors ligne (checksum mod 97) : un service en ligne reste à faire
   pour une vraie protection.
 
+## 1.27.1 — Sélecteur d apparence au clic
+- Paramètres → Profil : carte « Apparence de JARVIS » — 8 pastilles de couleurs,
+  un clic applique le thème ( Cyan, Alerte rouge, Mark, Éco, Gaming, et les
+  exclusives Premium Nanotech, Ultron, Furtif verrouillées sans licence).
+  Le thème courant est surligné. Complète l activation vocale (« mode or »).
+
 ## 1.27.0 — Visages de la famille (Premium)
 - La veille faciale accepte jusqu'à 6 visages inscrits (contre 1 avant) :
   conjoint, enfants… chacun commande JARVIS, et il salue la personne reconnue

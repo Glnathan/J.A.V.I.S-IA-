@@ -2,6 +2,7 @@
 
 import { Trash2, Volume2 } from "lucide-react";
 import { useState } from "react";
+import type { ThemeName } from "@/lib/types";
 import { addressChoiceOf, greetingPreview, type AddressChoice, type SetField, type SettingsForm } from "./form";
 import { Card, Field } from "./ui";
 
@@ -10,6 +11,8 @@ interface Props {
   set: SetField;
   desktop: boolean;
   premium: boolean;
+  theme: ThemeName;
+  onTheme: (t: ThemeName) => void;
   onPreview: (text: string) => void;
   onClearData: (kind: "history" | "memories" | "tasks") => void;
 }
@@ -21,7 +24,19 @@ const CHOICES: { id: AddressChoice; label: string }[] = [
   { id: "custom", label: "Autre…" },
 ];
 
-export default function ProfileTab({ form, set, desktop, premium, onPreview, onClearData }: Props) {
+/** Apparences disponibles (couleurs du thème correspondant). */
+const THEMES: { id: ThemeName; label: string; color: string; premium?: boolean }[] = [
+  { id: "cyan", label: "Cyan (classique)", color: "#22d3ee" },
+  { id: "red", label: "Alerte rouge", color: "#ff4d4d" },
+  { id: "gold", label: "Mark (rouge et or)", color: "#fbbf24" },
+  { id: "green", label: "Éco", color: "#34d399" },
+  { id: "gaming", label: "Gaming", color: "#b026ff" },
+  { id: "nanotech", label: "Nanotech", color: "#7dd3fc", premium: true },
+  { id: "ultron", label: "Ultron", color: "#ff3b30", premium: true },
+  { id: "stealth", label: "Furtif", color: "#cbd5e1", premium: true },
+];
+
+export default function ProfileTab({ form, set, desktop, premium, theme, onTheme, onPreview, onClearData }: Props) {
   const choice = addressChoiceOf(form);
   const [custom, setCustom] = useState(choice === "custom" ? form.honorific : "Patron");
   const preview = greetingPreview(form.userName, choice, form.honorific);
@@ -87,6 +102,31 @@ export default function ProfileTab({ form, set, desktop, premium, onPreview, onC
       <Field label="Ville (météo par défaut)">
         <input className="hud-field" value={form.city} placeholder="Paris" onChange={(e) => set("city", e.target.value)} />
       </Field>
+
+      <Card title="Apparence de JARVIS">
+        <p className="mb-3 text-xs leading-relaxed text-slate-400">
+          Un clic pour changer de costume — ou à la voix : « Jarvis, mode or », « mode Ultron »…
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {THEMES.map((t) => {
+            const locked = t.premium && !premium;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                disabled={locked}
+                onClick={() => onTheme(t.id)}
+                title={locked ? "Réservé à l'édition Premium" : `Activer : ${t.label}`}
+                className={`flex items-center gap-2 rounded border px-3 py-1.5 text-xs transition ${theme === t.id ? "border-hud bg-hud/15 text-white" : locked ? "border-hud/10 bg-black/10 text-slate-500" : "border-hud/15 bg-black/20 text-slate-300 hover:border-hud/40 hover:text-white"}`}
+              >
+                <span className="h-3 w-3 rounded-full" style={{ background: t.color }} />
+                {t.label}
+                {t.premium && <span className="text-[9px] uppercase text-amber-300/80">Premium</span>}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
 
       <Card title="Coffre Obsidian (Premium)">
         <Field

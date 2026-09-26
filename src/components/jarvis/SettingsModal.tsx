@@ -2,7 +2,7 @@
 
 import { Brain, Check, Crown, House, Loader2, Mail, Mic, Monitor, Puzzle, Smartphone, User, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import type { SettingsPayload } from "@/lib/types";
+import type { SettingsPayload, ThemeName } from "@/lib/types";
 import AITab, { type TestState } from "./settings/AITab";
 import { formFromSettings, type SetField, type SettingsForm } from "./settings/form";
 import GmailTab from "./settings/GmailTab";
@@ -25,6 +25,8 @@ interface Props {
   onClose: () => void;
   onSaved: (p: SettingsPayload) => void;
   onTestVoice: (opts: { voiceName: string; rate: number; pitch: number; text?: string }) => void;
+  theme: ThemeName;
+  onTheme: (t: ThemeName) => void;
   /** Libère le micro (arrête l'écoute permanente) avant une prise de voix — jamais deux micros à la fois. */
   onMicNeeded: () => void;
   /** Rend le micro à l'écoute permanente après les prises de voix. */
@@ -48,7 +50,7 @@ const TABS: { id: SettingsTab; label: string; icon: ReactNode }[] = [
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const NO_SECRETS = { sttApiKey: "", haToken: "", serpApiKey: "", elevenKey: "" };
 
-export default function SettingsModal({ payload, voices, canInstall, initialTab, onInstall, onClose, onSaved, onTestVoice, onMicNeeded, onMicRelease, onClearData, onQuit }: Props) {
+export default function SettingsModal({ payload, voices, canInstall, initialTab, theme, onInstall, onClose, onSaved, onTestVoice, onTheme, onMicNeeded, onMicRelease, onClearData, onQuit }: Props) {
   const [tab, setTab] = useState<SettingsTab>(initialTab);
   const [form, setForm] = useState<SettingsForm>(() => formFromSettings(payload.settings));
   const [secrets, setSecrets] = useState(NO_SECRETS);
@@ -162,6 +164,8 @@ export default function SettingsModal({ payload, voices, canInstall, initialTab,
               set={set}
               desktop={payload.desktop.enabled}
               premium={payload.settings.premiumActive}
+              theme={theme}
+              onTheme={onTheme}
               onPreview={(text) => onTestVoice({ voiceName: form.voiceName, rate: form.voiceRate, pitch: form.voicePitch, text })}
               onClearData={onClearData}
             />
